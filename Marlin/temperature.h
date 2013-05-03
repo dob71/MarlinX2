@@ -31,7 +31,7 @@
 void tp_init();  //initialise the heating
 void manage_heater(); //it is critical that this is called periodically.
 
-//low leven conversion routines
+// Low level conversion routines
 // do not use this routines and variables outsie of temperature.cpp
 extern int target_temperature[EXTRUDERS];  
 extern float current_temperature[EXTRUDERS];
@@ -40,6 +40,10 @@ extern float current_temperature_bed;
 
 #ifdef PIDTEMP
   extern float Kp,Ki,Kd,Kc;
+  #ifdef PID_FUNCTIONAL_RANGE
+  extern float Kr;
+  #endif
+  extern float pid_setpoint[EXTRUDERS];
 #endif
 #ifdef PIDTEMPBED
   extern float bedKp,bedKi,bedKd;
@@ -116,8 +120,6 @@ FORCE_INLINE bool isCoolingBed() {
 #error Invalid number of extruders
 #endif
 
-
-
 int getHeaterPower(int heater);
 void disable_heater();
 void setWatch();
@@ -137,4 +139,3 @@ FORCE_INLINE void autotempShutdown(){
 void PID_autotune(float temp, int extruder, int ncycles);
 
 #endif
-

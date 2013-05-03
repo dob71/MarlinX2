@@ -1,10 +1,25 @@
 #ifndef PINS_H
 #define PINS_H
 
-#define X_MS1_PIN -1
-#define X_MS2_PIN -1
-#define Y_MS1_PIN -1
-#define Y_MS2_PIN -1
+
+#ifndef DUAL_X_DRIVE
+#  define X_MS1_PIN -1
+#  define X_MS2_PIN -1
+#else  // DUAL_X_DRIVE
+#  define X0_MS1_PIN -1
+#  define X1_MS1_PIN -1
+#  define X0_MS2_PIN -1
+#  define X1_MS2_PIN -1
+#endif // DUAL_X_DRIVE
+#ifndef DUAL_Y_DRIVE
+#  define Y_MS1_PIN -1
+#  define Y_MS2_PIN -1
+#else  // DUAL_Y_DRIVE
+#  define Y0_MS1_PIN -1
+#  define Y1_MS1_PIN -1
+#  define Y0_MS2_PIN -1
+#  define Y1_MS2_PIN -1
+#endif // DUAL_Y_DRIVE
 #define Z_MS1_PIN -1
 #define Z_MS2_PIN -1
 #define E0_MS1_PIN -1
@@ -321,11 +336,25 @@
 
 #if MOTHERBOARD == 33 || MOTHERBOARD == 34
 
-#define X_STEP_PIN         54
-#define X_DIR_PIN          55
-#define X_ENABLE_PIN       38
-#define X_MIN_PIN           3
-#define X_MAX_PIN           2
+#ifndef DUAL_X_DRIVE
+#  define X_STEP_PIN       54
+#  define X_DIR_PIN        55
+#  define X_ENABLE_PIN     38
+#  define X_MIN_PIN         3
+#  define X_MAX_PIN         2
+#else  // DUAL_X_DRIVE
+#  define X0_STEP_PIN      54
+#  define X0_DIR_PIN       55
+#  define X0_ENABLE_PIN    38
+#  define X0_MIN_PIN        3
+#  define X0_MAX_PIN        2
+// These secondary X drive pins are for RepRap X2v3 extension board
+#  define X1_STEP_PIN      47
+#  define X1_DIR_PIN       32
+#  define X1_ENABLE_PIN    45
+#  define X1_MIN_PIN        3
+#  define X1_MAX_PIN        2
+#endif // DUAL_X_DRIVE
 
 #define Y_STEP_PIN         60
 #define Y_DIR_PIN          61
@@ -339,27 +368,35 @@
 #define Z_MIN_PIN          18
 #define Z_MAX_PIN          19
 
-#define Z2_STEP_PIN        36
-#define Z2_DIR_PIN         34
-#define Z2_ENABLE_PIN      30
+#ifdef Z_DUAL_STEPPER_DRIVERS
+#  define Z2_STEP_PIN      36
+#  define Z2_DIR_PIN       34
+#  define Z2_ENABLE_PIN    30
+#endif // Z_DUAL_STEPPER_DRIVERS
 
 #define E0_STEP_PIN        26
 #define E0_DIR_PIN         28
 #define E0_ENABLE_PIN      24
 
-#define E1_STEP_PIN        36
-#define E1_DIR_PIN         34
-#define E1_ENABLE_PIN      30
+#if EXTRUDERS > 1
+#  define E1_STEP_PIN      36
+#  define E1_DIR_PIN       34
+#  define E1_ENABLE_PIN    30
+#endif // EXTRUDERS > 1
 
 #define SDPOWER            -1
 #define SDSS               53
 #define LED_PIN            13
 
-#if MOTHERBOARD == 33
-#define FAN_PIN            9 // (Sprinter config)
-#else
-#define FAN_PIN            4 // IO pin. Buffer needed
+#if EXTRUDERS == 1
+#define FAN_PIN            9 // Using MOSFET on the RAMPS shield
+#elif !defined(PER_EXTRUDER_FANS)
+#define FAN_PIN            4 // 2 hotends, 1 fan, using SER4 connector, external MOSFET
+#elif defined(PER_EXTRUDER_FANS)
+#define FAN0_PIN           4 // 2 hotends, 1st hotend fan, using SER4 connector, external MOSFET
+#define FAN1_PIN           5 // 2 hotends, 2nd hotend fan, using SER3 connector, external MOSFET
 #endif
+
 #define PS_ON_PIN          12
 
 #if defined(REPRAP_DISCOUNT_SMART_CONTROLLER) || defined(G3D_PANEL)
@@ -369,16 +406,17 @@
 #endif
 
 #define HEATER_0_PIN       10   // EXTRUDER 1
-#if MOTHERBOARD == 33
-#define HEATER_1_PIN       -1
-#else
-#define HEATER_1_PIN       9    // EXTRUDER 2 (FAN On Sprinter)
-#endif
-#define HEATER_2_PIN       -1   
 #define TEMP_0_PIN         13   // ANALOG NUMBERING
-#define TEMP_1_PIN         15   // ANALOG NUMBERING
-#define TEMP_2_PIN         -1   // ANALOG NUMBERING
-#define HEATER_BED_PIN     8    // BED
+#if EXTRUDERS > 1
+#  define HEATER_1_PIN      9   // EXTRUDER 2 
+#  define TEMP_1_PIN       15   // ANALOG NUMBERING
+#else  // EXTRUDERS > 1
+#  define HEATER_1_PIN     -1
+#endif // EXTRUDERS > 1
+#define HEATER_2_PIN       -1
+#define TEMP_2_PIN         -1
+
+#define HEATER_BED_PIN      8   // BED
 #define TEMP_BED_PIN       14   // ANALOG NUMBERING
 
 #ifdef ULTRA_LCD
@@ -430,7 +468,7 @@
     #define BEEPER 33		No Beeper added
 
     //buttons are attached to a shift register
-	// Not wired this yet
+    // Not wired this yet
     //#define SHIFT_CLK 38
     //#define SHIFT_LD 42
     //#define SHIFT_OUT 40
@@ -448,7 +486,6 @@
     #define encrot1 2
     #define encrot2 3
     #define encrot3 1
-
     
     //bits in the shift register that carry the buttons for:
     // left up center down right red
@@ -495,32 +532,34 @@
 #define KILL_PIN           -1
 
 #ifdef RAMPS_V_1_0 // RAMPS_V_1_0
-  #define HEATER_0_PIN     12    // RAMPS 1.0
-  #define HEATER_BED_PIN   -1    // RAMPS 1.0
-  #define FAN_PIN          11    // RAMPS 1.0
+#  define HEATER_0_PIN     12    // RAMPS 1.0
+#  define HEATER_BED_PIN   -1    // RAMPS 1.0
+#  define FAN_PIN          11    // RAMPS 1.0
 #else // RAMPS_V_1_1 or RAMPS_V_1_2
-  #define HEATER_0_PIN     10    // RAMPS 1.1
-  #define HEATER_BED_PIN    8    // RAMPS 1.1
-  #define FAN_PIN           9    // RAMPS 1.1
+#  define HEATER_0_PIN     10    // RAMPS 1.1
+#  define HEATER_BED_PIN    8    // RAMPS 1.1
+#  define FAN_PIN           9    // RAMPS 1.1
 #endif
-#define HEATER_1_PIN        -1
-#define HEATER_2_PIN        -1
+
+#define HEATER_1_PIN       -1
+#define HEATER_2_PIN       -1
 #define TEMP_0_PIN          2    // MUST USE ANALOG INPUT NUMBERING NOT DIGITAL OUTPUT NUMBERING!!!!!!!!!
-#define TEMP_1_PIN          -1   
-#define TEMP_2_PIN          -1   
+#define TEMP_1_PIN         -1   
+#define TEMP_2_PIN         -1   
 #define TEMP_BED_PIN        1    // MUST USE ANALOG INPUT NUMBERING NOT DIGITAL OUTPUT NUMBERING!!!!!!!!!
-#endif// MOTHERBOARD == 33 || MOTHERBOARD == 34
+
+#endif // MOTHERBOARD == 33 || MOTHERBOARD == 34
 
 // SPI for Max6675 Thermocouple 
 
 #ifndef SDSUPPORT
 // these pins are defined in the SD library if building with SD support  
-  #define MAX_SCK_PIN          52
-  #define MAX_MISO_PIN         50
-  #define MAX_MOSI_PIN         51
-  #define MAX6675_SS       53
+#  define MAX_SCK_PIN      52
+#  define MAX_MISO_PIN     50
+#  define MAX_MOSI_PIN     51
+#  define MAX6675_SS       53
 #else
-  #define MAX6675_SS       49
+#  define MAX6675_SS       49
 #endif
 
 #endif//MOTHERBOARD == 3 || MOTHERBOARD == 33 || MOTHERBOARD == 34

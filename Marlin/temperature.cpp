@@ -51,6 +51,9 @@ float current_temperature_bed = 0;
   #ifdef PID_ADD_EXTRUSION_RATE
     float Kc=DEFAULT_Kc;
   #endif
+  #ifdef PID_FUNCTIONAL_RANGE
+    float Kr=PID_FUNCTIONAL_RANGE;
+  #endif
 #endif //PIDTEMP
 
 #ifdef PIDTEMPBED
@@ -132,6 +135,10 @@ static void updateTemperaturesFromRawValues();
 int watch_start_temp[EXTRUDERS] = ARRAY_BY_EXTRUDERS(0,0,0);
 unsigned long watchmillis[EXTRUDERS] = ARRAY_BY_EXTRUDERS(0,0,0);
 #endif //WATCH_TEMP_PERIOD
+
+#ifdef PER_EXTRUDER_FANS
+int fan_pin[EXTRUDERS] = ARRAY_BY_EXTRUDER(FAN0_PIN, FAN1_PIN, FAN2_PIN);
+#endif //PER_EXTRUDER_FANS
 
 //===========================================================================
 //=============================   functions      ============================
@@ -319,59 +326,61 @@ void manage_heater()
   for(int e = 0; e < EXTRUDERS; e++) 
   {
 
-  #ifdef PIDTEMP
+#ifdef PIDTEMP
     pid_input = current_temperature[e];
-
-    #ifndef PID_OPENLOOP
+    #ifdef PID_FUNCTIONAL_RANGE
+    if(abs(pid_setpoint[e] - pid_input) <= Kr)
+    #endif /* PID_FUNCTIONAL_RANGE */
+    {
+        #ifndef PID_OPENLOOP
         pid_error[e] = target_temperature[e] - pid_input;
-        if(pid_error[e] > PID_FUNCTIONAL_RANGE) {
-          pid_output = PID_MAX;
-          pid_reset[e] = true;
-        }
-        else if(pid_error[e] < -PID_FUNCTIONAL_RANGE) {
-          pid_output = 0;
-          pid_reset[e] = true;
-        }
-        else {
-          if(pid_reset[e] == true) {
-            temp_iState[e] = 0.0;
-            pid_reset[e] = false;
-          }
-          pTerm[e] = Kp * pid_error[e];
-          temp_iState[e] += pid_error[e];
-          temp_iState[e] = constrain(temp_iState[e], temp_iState_min[e], temp_iState_max[e]);
-          iTerm[e] = Ki * temp_iState[e];
+        pTerm[e] = Kp * pid_error[e];
+        temp_iState[e] += pid_error[e];
+        temp_iState[e] = constrain(temp_iState[e], temp_iState_min[e], temp_iState_max[e]);
+        iTerm[e] = Ki * temp_iState[e];
 
-          //K1 defined in Configuration.h in the PID settings
-          #define K2 (1.0-K1)
-          dTerm[e] = (Kd * (pid_input - temp_dState[e]))*K2 + (K1 * dTerm[e]);
-          temp_dState[e] = pid_input;
+        //K1 defined in Configuration.h in the PID settings
+        #define K2 (1.0-K1)
+        dTerm[e] = (Kd * (pid_input - temp_dState[e]))*K2 + (K1 * dTerm[e]);
+        temp_dState[e] = pid_input;
 
-          pid_output = constrain(pTerm[e] + iTerm[e] - dTerm[e], 0, PID_MAX);
-        }
-    #else 
-          pid_output = constrain(target_temperature[e], 0, PID_MAX);
-    #endif //PID_OPENLOOP
-    #ifdef PID_DEBUG
-    SERIAL_ECHO_START(" PIDDEBUG ");
-    SERIAL_ECHO(e);
-    SERIAL_ECHO(": Input ");
-    SERIAL_ECHO(pid_input);
-    SERIAL_ECHO(" Output ");
-    SERIAL_ECHO(pid_output);
-    SERIAL_ECHO(" pTerm ");
-    SERIAL_ECHO(pTerm[e]);
-    SERIAL_ECHO(" iTerm ");
-    SERIAL_ECHO(iTerm[e]);
-    SERIAL_ECHO(" dTerm ");
-    SERIAL_ECHOLN(dTerm[e]);  
-    #endif //PID_DEBUG
-  #else /* PID off */
-    pid_output = 0;
-    if(current_temperature[e] < target_temperature[e]) {
-      pid_output = PID_MAX;
+        pid_output = constrain(pTerm[e] + iTerm[e] - dTerm[e], 0, PID_MAX);
+        
+        #else 
+        pid_output = constrain(target_temperature[e], 0, PID_MAX);
+        #endif //PID_OPENLOOP
+        #ifdef PID_DEBUG
+        SERIAL_ECHO_START(" PIDDEBUG ");
+        SERIAL_ECHO(e);
+        SERIAL_ECHO(": Input ");
+        SERIAL_ECHO(pid_input);
+        SERIAL_ECHO(" Output ");
+        SERIAL_ECHO(pid_output);
+        SERIAL_ECHO(" pTerm ");
+        SERIAL_ECHO(pTerm[e]);
+        SERIAL_ECHO(" iTerm ");
+        SERIAL_ECHO(iTerm[e]);
+        SERIAL_ECHO(" dTerm ");
+        SERIAL_ECHOLN(dTerm[e]);  
+        #endif //PID_DEBUG
     }
-  #endif
+    #ifdef PID_FUNCTIONAL_RANGE
+    else
+    #endif // PID_FUNCTIONAL_RANGE
+#endif // PIDTEMP
+    {
+        #if defined(PID_DEBUG) && defined(PID_FUNCTIONAL_RANGE)
+        SERIAL_ECHO_START(" PIDDEBUG ");
+        SERIAL_ECHO(e);
+        SERIAL_ECHO(": PID Off");
+        SERIAL_ECHO(" DistToTgt ");
+        SERIAL_ECHOLN(abs(pid_setpoint[e] - pid_input));
+        #endif //PID_DEBUG && PID_FUNCTIONAL_RANGE
+        pid_output = 0;
+        if(current_temperature[e] < target_temperature[e]) {
+          pid_output = PID_MAX;
+        }
+    }
 
     // Check if temperature is within the correct range
     if((current_temperature[e] > minttemp[e]) && (current_temperature[e] < maxttemp[e])) 
@@ -407,35 +416,34 @@ void manage_heater()
   #endif
 
   #if TEMP_SENSOR_BED != 0
-  
-  #ifdef PIDTEMPBED
-    pid_input = current_temperature_bed;
+    #ifdef PIDTEMPBED
+      pid_input = current_temperature_bed;
 
-    #ifndef PID_OPENLOOP
-		  pid_error_bed = target_temperature_bed - pid_input;
-		  pTerm_bed = bedKp * pid_error_bed;
-		  temp_iState_bed += pid_error_bed;
-		  temp_iState_bed = constrain(temp_iState_bed, temp_iState_min_bed, temp_iState_max_bed);
-		  iTerm_bed = bedKi * temp_iState_bed;
+      #ifndef PID_OPENLOOP
+      pid_error_bed = target_temperature_bed - pid_input;
+      pTerm_bed = bedKp * pid_error_bed;
+      temp_iState_bed += pid_error_bed;
+      temp_iState_bed = constrain(temp_iState_bed, temp_iState_min_bed, temp_iState_max_bed);
+      iTerm_bed = bedKi * temp_iState_bed;
 
-		  //K1 defined in Configuration.h in the PID settings
-		  #define K2 (1.0-K1)
-		  dTerm_bed= (bedKd * (pid_input - temp_dState_bed))*K2 + (K1 * dTerm_bed);
-		  temp_dState_bed = pid_input;
+      //K1 defined in Configuration.h in the PID settings
+      #define K2 (1.0-K1)
+      dTerm_bed= (bedKd * (pid_input - temp_dState_bed))*K2 + (K1 * dTerm_bed);
+      temp_dState_bed = pid_input;
 
-		  pid_output = constrain(pTerm_bed + iTerm_bed - dTerm_bed, 0, MAX_BED_POWER);
+      pid_output = constrain(pTerm_bed + iTerm_bed - dTerm_bed, 0, MAX_BED_POWER);
 
-    #else 
+      #else 
       pid_output = constrain(target_temperature_bed, 0, MAX_BED_POWER);
-    #endif //PID_OPENLOOP
+      #endif //PID_OPENLOOP
 
-	  if((current_temperature_bed > BED_MINTEMP) && (current_temperature_bed < BED_MAXTEMP)) 
-	  {
-	    soft_pwm_bed = (int)pid_output >> 1;
-	  }
-	  else {
-	    soft_pwm_bed = 0;
-	  }
+      if((current_temperature_bed > BED_MINTEMP) && (current_temperature_bed < BED_MAXTEMP)) 
+      {
+        soft_pwm_bed = (int)pid_output >> 1;
+      }
+      else {
+        soft_pwm_bed = 0;
+      }
 
     #elif !defined(BED_LIMIT_SWITCHING)
       // Check if temperature is within the correct range
@@ -583,6 +591,12 @@ void tp_init()
     temp_iState_min_bed = 0.0;
     temp_iState_max_bed = PID_INTEGRAL_DRIVE_MAX / bedKi;
 #endif //PIDTEMPBED
+#ifdef PER_EXTRUDER_FANS 
+    pinMode(fan_pin[e], OUTPUT);
+    #ifdef FAST_PWM_FAN
+    setPwmFrequency(fan_pin[e], 1); // No prescaling. Pwm frequency = F_CPU/256/8
+    #endif
+#endif
   }
 
   #if (HEATER_0_PIN > -1) 
@@ -597,15 +611,15 @@ void tp_init()
   #if (HEATER_BED_PIN > -1) 
     SET_OUTPUT(HEATER_BED_PIN);
   #endif  
-  #if (FAN_PIN > -1) 
+  #if !defined(PER_EXTRUDER_FANS) && (FAN_PIN > -1) 
     SET_OUTPUT(FAN_PIN);
     #ifdef FAST_PWM_FAN
     setPwmFrequency(FAN_PIN, 1); // No prescaling. Pwm frequency = F_CPU/256/8
     #endif
     #ifdef FAN_SOFT_PWM
-	soft_pwm_fan=(unsigned char)fanSpeed;
-	#endif
-  #endif  
+    soft_pwm_fan=fanSpeed[0];
+    #endif
+  #endif
 
   #ifdef HEATER_0_USES_MAX6675
     #ifndef SDSUPPORT
@@ -939,7 +953,7 @@ ISR(TIMER0_COMPB_vect)
     if(soft_pwm_b > 0) WRITE(HEATER_BED_PIN,1);
     #endif
     #ifdef FAN_SOFT_PWM
-    soft_pwm_fan =(unsigned char) fanSpeed;
+    soft_pwm_fan = fanSpeed[ACTIVE_EXTRUDER];
     if(soft_pwm_fan > 0) WRITE(FAN_PIN,1);
     #endif
   }

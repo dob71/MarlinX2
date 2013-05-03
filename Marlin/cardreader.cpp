@@ -11,15 +11,15 @@
 
 CardReader::CardReader()
 {
-   filesize = 0;
-   sdpos = 0;
-   sdprinting = false;
-   cardOK = false;
-   saving = false;
-   autostart_atmillis=0;
+  filesize = 0;
+  sdpos = 0;
+  sdprinting = false;
+  cardOK = false;
+  saving = false;
+  autostart_atmillis=0;
 
-   autostart_stilltocheck=true; //the sd start is delayed, because otherwise the serial cannot answer fast enought to make contact with the hostsoftware.
-   lastnr=0;
+  autostart_stilltocheck=true; //the sd start is delayed, because otherwise the serial cannot answer fast enought to make contact with the hostsoftware.
+  lastnr=0;
   //power to SD reader
   #if SDPOWER > -1
     SET_OUTPUT(SDPOWER); 

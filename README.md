@@ -1,6 +1,8 @@
 WARNING: 
 --------
-THIS IS RELEASE CANDIDATE 2 FOR MARLIN 1.0.0
+THIS IS MARLIN X2 1.1.0 Beta 1
+Merged Marlin RC2 with MARLIN X2 1.0.0
+Several new features added
 
 The configuration is now split in two files
 Configuration.h for the normal settings
@@ -11,6 +13,7 @@ Gen7T is not supported.
 Quick Information
 ===================
 This RepRap firmware is a mashup between <a href="https://github.com/kliment/Sprinter">Sprinter</a>, <a href="https://github.com/simen/grbl/tree">grbl</a> and many original parts.
+On top of that it has multiple extruder support.
 
 Derived from Sprinter and Grbl by Erik van der Zalm.
 Sprinters lead developers are Kliment and caru.
@@ -18,7 +21,6 @@ Grbls lead developer is Simen Svale Skogsrud. Sonney Jeon (Chamnit) improved som
 A fork by bkubicek for the Ultimaker was merged, and further development was aided by him.
 Some features have been added by:
 Lampmaker, Bradley Feldman, and others...
-
 
 Features:
 
@@ -46,8 +48,11 @@ Features:
 *   PID tuning
 *   CoreXY kinematics (www.corexy.com/theory.html)
 *   Configurable serial port to support connection of wireless adaptors.
+*   Support for up to 3 extruders
+*   Support for filament compression (bowden filament drive) compensation.
+*   Support for the follow-me mode.
 
-The default baudrate is 250000. This baudrate has less jitter and hence errors than the usual 115200 baud, but is less supported by drivers and host-environments.
+The default baudrate is 115200. You can try 250000 it is less supported by drivers and host-environments, but might work better for you.
 
 
 Differences and additions to the already good Sprinter firmware:
@@ -129,8 +134,77 @@ necessary for backwards compatibility.
 An interrupt is used to manage ADC conversions, and enforce checking for critical temperatures.
 This leads to less blocking in the heater management routine.
 
+*Temperature control:*
 
-Non-standard M-Codes, different to an old version of sprinter:
+You can configure PID to be active only within specified range of the terget temperature.
+Outside of that range simple on/off mode is used.
+
+*Multiple extruder support:*
+
+T_num_ [F_num_] [S_num_] - changes the extruder. 
+The feedrate might be set to reposition the extruder and specify at what 
+speed. If "F" is not present the coordinates are adjusted, but the move is 
+not performed. "S" allows to choose what E position the just
+selected extruder should start from (_num_ - the extruder number to 
+pick the last position from). If "S" is not specified the last known 
+position for the new selected extruder is used. For example, if Skeinforge 
+generates support using absolute coordinates and you want it to be printed 
+using extruder 1 while the object is printed using extruder 0, use "T1 S0" 
+to start support printing and "T0 S1" to go go back to the object printing. 
+Alternatively, If you have gcode for extrider 0 and 1 generated separately 
+and then mixed just use T0 and T1 to switch between the extruders.
+
+In general, the commands and settings for extruder are applied only to the
+active extruder. For example, to change max feedrate for extruders 0 and
+1, one has to switch to the extruder 0, set its rate, then switch to
+the extruder 1 and set its rate. There are several exceptions. 
+
+The M503 command shows info for all extruders. It simply prints multiple 
+parameters that are extruder specific starting from the value for the extruder 0 
+and so on, for example you'll see two 'E'(rate) values if there are 2 
+extruders. 
+
+Some of the commands (like M104, M105 and M109) can take extruder
+number as a parameter. For example, in order to change the temperature 
+of the extruder 1 heater without switching to it use "M104 S180 T1".
+M105 can also be used with option A1 that will change its output to 
+show temperature of all extruders starting with the active one (for example
+if extruder 1 is active on a 2 extruder system: "ok T1:27 T0:27 B:25").
+
+M109 can be used to wait for all extruder heaters that have temperature 
+set to non-0 values by specifying non-0 'A' parameter, e.g. "M109 A1".
+M109 can also take the W_num_ parameter that can change the default 
+dwell time for temperature stabilization (if enabled in the config).
+
+Note: If using old Printrun, your version might not accept the "T" command.
+You might need to open pronsole.py and change all occurances of
+
+    if(l[0]=='M' or l[0]=="G"):
+
+to
+
+    if(l[0]=='M' or l[0]=='G' or l[0]=='T'):
+
+
+
+
+More updates to readme:
+- Make a note that all setup commands now take 'T#' paramter
+- Make a note that M205 now uses M# for min travel feedrate and T# to 
+  specify extruder number the max E-jerk is being set for
+- Make note M204 use R instead of T for retract acceleration
+- Make note that acceleration and retract_aceleration are saved in EEPROM
+- Make a note that fan can be per extruder or multiple independent fans (for M106/M107 commands).
+- Change the M109, M104 H and L options description (state that limit down or up to 
+  one step, but the step can be any number of degrees, so gradual multiple steps 
+  are possible through making a step up and down to different number of degrees).
+- Make note that there is no multiple extruder support for FWRETRACT
+- Add note M322 - Turn the "follow me" mode on or off for  extruders 
+  (paramters: T<extruder>  S<1-on/0-off>), has to be off for the active extruder.
+- Add note about M340 (compression compensation)
+- Add note about M331/M332 (position save/restore)
+
+Non-standard G-Codes, different to an old version of sprinter:
 ==============================================================
 Movement:
 
@@ -166,7 +240,8 @@ Temperature variables:
 Advance:
 
 *   M200 - Set filament diameter for advance
-*   M205 - advanced settings:  minimum travel speed S=while printing T=travel only,  B=minimum segment time X= maximum xy jerk, Z=maximum Z jerk
+*   M205 - advanced settings:  minimum travel speed S=while printing T=travel only,  B=minimum segment time X= maximum xy jerk, Z=maximum Z jerk, E= max E jerk (for retracts)
+*   M208 - set XY offset for extruders (off of the printing point)
 
 EEPROM:
 
@@ -181,26 +256,23 @@ MISC:
 *   M240 - Trigger a camera to take a photograph
 *   M999 - Restart after being stopped by error
 
+MULTIPLE EXTRUDERS:
+
+*   T - changes active extruder (details in the section above) 
+
+
 Configuring and compilation:
 ============================
 
-Install the arduino software IDE/toolset v23 (Some configurations also work with 1.x.x)
+Install the arduino software IDE/toolset v23
    http://www.arduino.cc/en/Main/Software
 
-For gen6/gen7 and sanguinololu the Sanguino directory in the Marlin dir needs to be copied to the arduino environment.
-  copy ArduinoAddons\Arduino_x.x.x\sanguino <arduino home>\hardware\Sanguino
-
-Install Ultimaker's RepG 25 build
-    http://software.ultimaker.com
-For SD handling and as better substitute (apart from stl manipulation) download
-the very nice Kliment's printrun/pronterface  https://github.com/kliment/Printrun
-
-Copy the Ultimaker Marlin firmware
-   https://github.com/ErikZalm/Marlin/tree/Marlin_v1
+Copy the Marlin firmware
+   https://github.com/dob71/Marlin/tree/m
    (Use the download button)
 
 Start the arduino IDE.
-Select Tools -> Board -> Arduino Mega 2560    or your microcontroller
+Select Tools -> Board -> Arduino Mega 2560 or your microcontroller
 Select the correct serial port in Tools ->Serial Port
 Open Marlin.pde
 
@@ -209,15 +281,4 @@ Click the Verify/Compile button
 Click the Upload button
 If all goes well the firmware is uploading
 
-Start Ultimaker's Custom RepG 25
-Make sure Show Experimental Profiles is enabled in Preferences
-Select Sprinter as the Driver
-
-Press the Connect button.
-
-KNOWN ISSUES: RepG will display:  Unknown: marlin x.y.z
-
-That's ok.  Enjoy Silky Smooth Printing.
-
-
-
+Enjoy Silky Smooth Printing.

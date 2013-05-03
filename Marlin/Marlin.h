@@ -36,6 +36,7 @@
 
 #include "MarlinSerial.h"
 
+<<<<<<< HEAD
 #ifndef cbi
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #endif
@@ -57,9 +58,9 @@
 #define SERIAL_PROTOCOLLN(x) {MYSERIAL.print(x);MYSERIAL.write('\n');}
 #define SERIAL_PROTOCOLLNPGM(x) {serialprintPGM(PSTR(x));MYSERIAL.write('\n');}
 
-
 const char errormagic[] PROGMEM ="Error:";
 const char echomagic[] PROGMEM ="echo:";
+
 #define SERIAL_ERROR_START serialprintPGM(errormagic);
 #define SERIAL_ERROR(x) SERIAL_PROTOCOL(x)
 #define SERIAL_ERRORPGM(x) SERIAL_PROTOCOLPGM(x)
@@ -78,8 +79,10 @@ void serial_echopair_P(const char *s_P, float v);
 void serial_echopair_P(const char *s_P, double v);
 void serial_echopair_P(const char *s_P, unsigned long v);
 
+// Macro for getting current active extruder
+#define ACTIVE_EXTRUDER ((int)active_extruder)
 
-//things to write to serial from Programmemory. saves 400 to 2k of RAM.
+// Things to write to serial from program memory. saves 400 to 2k of RAM.
 FORCE_INLINE void serialprintPGM(const char *str)
 {
   char ch=pgm_read_byte(str);
@@ -90,26 +93,50 @@ FORCE_INLINE void serialprintPGM(const char *str)
   }
 }
 
-
 void get_command();
 void process_commands();
-
 void manage_inactivity();
 
-#if X_ENABLE_PIN > -1
-  #define  enable_x() WRITE(X_ENABLE_PIN, X_ENABLE_ON)
+#if !defined(DUAL_X_DRIVE) && (X_ENABLE_PIN > -1)
+  #define enable_x() WRITE(X_ENABLE_PIN, X_ENABLE_ON)
   #define disable_x() WRITE(X_ENABLE_PIN,!X_ENABLE_ON)
+#elif defined(DUAL_X_DRIVE) && (X0_ENABLE_PIN > -1) && (X1_ENABLE_PIN > -1)
+  #define enable_x() ((ACTIVE_EXTRUDER == 0)?(WRITE(X0_ENABLE_PIN, X_ENABLE_ON)):\
+                                             (WRITE(X1_ENABLE_PIN, X_ENABLE_ON)))
+  #define disable_x() ((ACTIVE_EXTRUDER == 0)?(WRITE(X0_ENABLE_PIN, X_ENABLE_ON)):\
+                                              (WRITE(X1_ENABLE_PIN, X_ENABLE_ON)))
+  #define enable_x0()  WRITE(X0_ENABLE_PIN, X_ENABLE_ON)
+  #define disable_x0() WRITE(X0_ENABLE_PIN,!X_ENABLE_ON)
+  #define enable_x1()  WRITE(X1_ENABLE_PIN, X_ENABLE_ON)
+  #define disable_x1() WRITE(X1_ENABLE_PIN,!X_ENABLE_ON)
 #else
-  #define enable_x() ;
-  #define disable_x() ;
+  #define enable_x() /* nothing */
+  #define disable_x() /* nothing */
+  #define enable_x0() /* nothing */
+  #define disable_x0() /* nothing */
+  #define enable_x1() /* nothing */
+  #define disable_x1() /* nothing */
 #endif
 
-#if Y_ENABLE_PIN > -1
-  #define  enable_y() WRITE(Y_ENABLE_PIN, Y_ENABLE_ON)
+#if !defined(DUAL_Y_DRIVE) && (Y_ENABLE_PIN > -1)
+  #define enable_y() WRITE(Y_ENABLE_PIN, Y_ENABLE_ON)
   #define disable_y() WRITE(Y_ENABLE_PIN,!Y_ENABLE_ON)
+#elif defined(DUAL_Y_DRIVE) && (Y0_ENABLE_PIN > -1) && (Y1_ENABLE_PIN > -1)
+  #define enable_y() ((ACTIVE_EXTRUDER==0)?(WRITE(Y0_ENABLE_PIN, Y_ENABLE_ON)):\
+                                           (WRITE(Y1_ENABLE_PIN, Y_ENABLE_ON)))
+  #define disable_y() ((ACTIVE_EXTRUDER==0)?(WRITE(Y0_ENABLE_PIN, Y_ENABLE_ON)):\
+                                            (WRITE(Y1_ENABLE_PIN, Y_ENABLE_ON)))
+  #define enable_y0()  WRITE(Y0_ENABLE_PIN, Y_ENABLE_ON)
+  #define disable_y0() WRITE(Y0_ENABLE_PIN,!Y_ENABLE_ON)
+  #define enable_y1()  WRITE(Y1_ENABLE_PIN, Y_ENABLE_ON)
+  #define disable_y1() WRITE(Y1_ENABLE_PIN,!Y_ENABLE_ON)
 #else
-  #define enable_y() ;
-  #define disable_y() ;
+  #define enable_y() /* nothing */ 
+  #define disable_y() /* nothing */
+  #define enable_y0() /* nothing */
+  #define disable_y0() /* nothing */
+  #define enable_y1() /* nothing */
+  #define disable_y1() /* nothing */
 #endif
 
 #if Z_ENABLE_PIN > -1
@@ -121,8 +148,8 @@ void manage_inactivity();
     #define disable_z() WRITE(Z_ENABLE_PIN,!Z_ENABLE_ON)
   #endif
 #else
-  #define enable_z() ;
-  #define disable_z() ;
+  #define enable_z() /* nothing */
+  #define disable_z() /* nothing */
 #endif
 
 #if defined(E0_ENABLE_PIN) && (E0_ENABLE_PIN > -1)
@@ -178,24 +205,53 @@ void setPwmFrequency(uint8_t pin, int val);
 #endif //CRITICAL_SECTION_START
 
 extern float homing_feedrate[];
-extern bool axis_relative_modes[];
-extern int feedmultiply;
-extern int extrudemultiply; // Sets extrude multiply factor (in percent)
+extern bool  axis_relative_modes[];
+extern int   feedmultiply;
+extern int   extrudemultiply; // Sets extrude multiply factor (in percent)
 extern float current_position[NUM_AXIS] ;
-extern float add_homeing[3];
-extern float min_pos[3];
-extern float max_pos[3];
-extern int fanSpeed;
+#ifdef ENABLE_ADD_HOMEING
+extern float add_homeing[EXTRUDERS][3];
+#endif // ENABLE_ADD_HOMEING
+extern float extruder_offset[2][EXTRUDERS];
+extern unsigned char fanSpeed[EXTRUDERS];
+
+#ifdef DUAL_X_DRIVE
+  extern int gInvertXDir[EXTRUDERS] = {INVERT_X0_DIR, INVERT_X1_DIR};
+  extern int gXHomeDir[EXTRUDERS] = {X0_HOME_DIR, X1_HOME_DIR};
+  extern float gXMaxPos[EXTRUDERS] = {X0_MAX_POS, X1_MAX_POS};
+  extern float gXMinPos[EXTRUDERS] = {X0_MIN_POS, X1_MIN_POS};
+  #ifdef MANUAL_HOME_POSITIONS
+    extern float gManualXHomePos[EXTRUDERS] = {MANUAL_X0_HOME_POS, MANUAL_X1_HOME_POS};
+  #endif // MANUAL_HOME_POSITIONS
+  extern float gXHomeRetract[EXTRUDERS] = {X0_HOME_RETRACT_MM, X1_HOME_RETRACT_MM};
+#endif // DUAL_X_DRIVE
+  
+#ifdef DUAL_Y_DRIVE
+  extern int gInvertYDir[EXTRUDERS] = {INVERT_Y0_DIR, INVERT_Y1_DIR};
+  extern int gYHomeDir[EXTRUDERS] = {Y0_HOME_DIR, Y1_HOME_DIR};
+  extern float gYMaxPos[EXTRUDERS] = {Y0_MAX_POS, Y1_MAX_POS};
+  extern float gYMinPos[EXTRUDERS] = {Y0_MIN_POS, Y1_MIN_POS};
+  #ifdef MANUAL_HOME_POSITIONS
+    extern float gManualYHomePos[EXTRUDERS] = {MANUAL_Y0_HOME_POS, MANUAL_Y1_HOME_POS};
+  #endif // MANUAL_HOME_POSITIONS
+  extern float gYHomeRetract[EXTRUDERS] = {Y0_HOME_RETRACT_MM, Y1_HOME_RETRACT_MM};
+#endif // DUAL_Y_DRIVE
 
 #ifdef FWRETRACT
-extern bool autoretract_enabled;
-extern bool retracted;
+extern bool  autoretract_enabled;
+extern bool  retracted;
 extern float retract_length, retract_feedrate, retract_zlift;
 extern float retract_recover_length, retract_recover_feedrate;
 #endif
 
+#ifdef PER_EXTRUDER_FANS
+extern int fan_pin[EXTRUDERS];
+#endif
+
 extern unsigned long starttime;
 extern unsigned long stoptime;
+
+extern unsigned int debug_flags;
 
 // Handling multiple extruders pins
 extern uint8_t active_extruder;

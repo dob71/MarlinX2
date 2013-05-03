@@ -224,21 +224,21 @@ static void lcd_autostart_sd()
 
 void lcd_preheat_pla()
 {
-    setTargetHotend0(plaPreheatHotendTemp);
-    setTargetHotend1(plaPreheatHotendTemp);
-    setTargetHotend2(plaPreheatHotendTemp);
+    for(int e = 0; e < EXTRUDERS; e++) {
+      setTargetHotend(plaPreheatHotendTemp, e);
+      fanSpeed[e] = (unsigned char)plaPreheatFanSpeed;
+    }
     setTargetBed(plaPreheatHPBTemp);
-    fanSpeed = plaPreheatFanSpeed;
     lcd_return_to_status();
 }
 
 void lcd_preheat_abs()
 {
-    setTargetHotend0(absPreheatHotendTemp);
-    setTargetHotend1(absPreheatHotendTemp);
-    setTargetHotend2(absPreheatHotendTemp);
+    for(int e = 0; e < EXTRUDERS; e++) {
+      setTargetHotend(absPreheatHotendTemp, e);
+      fanSpeed[e] = (unsigned char)absPreheatFanSpeed;
+    }
     setTargetBed(absPreheatHPBTemp);
-    fanSpeed = absPreheatFanSpeed;
     lcd_return_to_status();
 }
 
@@ -257,7 +257,7 @@ static void lcd_tune_menu()
 #if TEMP_SENSOR_BED != 0
     MENU_ITEM_EDIT(int3, MSG_BED, &target_temperature_bed, 0, BED_MAXTEMP - 15);
 #endif
-    MENU_ITEM_EDIT(int3, MSG_FAN_SPEED, &fanSpeed, 0, 255);
+    MENU_ITEM_EDIT(int3, MSG_FAN_SPEED, &(fanSpeed[ACTIVE_EXTRUDER]), 0, 255);
     MENU_ITEM_EDIT(int3, MSG_FLOW, &extrudemultiply, 10, 999);
 #ifdef FILAMENTCHANGEENABLE
      MENU_ITEM(gcode, MSG_FILAMENTCHANGE, PSTR("M600"));
@@ -450,7 +450,7 @@ static void lcd_control_temperature_menu()
 #if TEMP_SENSOR_BED != 0
     MENU_ITEM_EDIT(int3, MSG_BED, &target_temperature_bed, 0, BED_MAXTEMP - 15);
 #endif
-    MENU_ITEM_EDIT(int3, MSG_FAN_SPEED, &fanSpeed, 0, 255);
+    MENU_ITEM_EDIT(int3, MSG_FAN_SPEED, &(fanSpeed[ACTIVE_EXTRUDER]), 0, 255);
 #ifdef AUTOTEMP
     MENU_ITEM_EDIT(bool, MSG_AUTOTEMP, &autotemp_enabled);
     MENU_ITEM_EDIT(float3, MSG_MIN, &autotemp_min, 0, HEATER_0_MAXTEMP - 15);
