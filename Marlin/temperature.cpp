@@ -137,7 +137,7 @@ unsigned long watchmillis[EXTRUDERS] = ARRAY_BY_EXTRUDERS(0,0,0);
 #endif //WATCH_TEMP_PERIOD
 
 #ifdef PER_EXTRUDER_FANS
-int fan_pin[EXTRUDERS] = ARRAY_BY_EXTRUDER(FAN0_PIN, FAN1_PIN, FAN2_PIN);
+int fan_pin[EXTRUDERS] = ARRAY_BY_EXTRUDERS(FAN0_PIN, FAN1_PIN, FAN2_PIN);
 #endif //PER_EXTRUDER_FANS
 
 //===========================================================================
@@ -325,11 +325,16 @@ void manage_heater()
 
   for(int e = 0; e < EXTRUDERS; e++) 
   {
-
+#if EXTRUDERS > 1
+    // Use temperature of the active extruder for the followers
+    if(follow_me_heater && (follow_me & (1<<e)) != 0) {
+       target_temperature[e] = target_temperature[ACTIVE_EXTRUDER];
+    }
+#endif // EXTRUDERS > 1
 #ifdef PIDTEMP
     pid_input = current_temperature[e];
     #ifdef PID_FUNCTIONAL_RANGE
-    if(abs(pid_setpoint[e] - pid_input) <= Kr)
+    if(abs(target_temperature[e] - pid_input) <= Kr)
     #endif /* PID_FUNCTIONAL_RANGE */
     {
         #ifndef PID_OPENLOOP
@@ -349,33 +354,39 @@ void manage_heater()
         #else 
         pid_output = constrain(target_temperature[e], 0, PID_MAX);
         #endif //PID_OPENLOOP
-        #ifdef PID_DEBUG
-        SERIAL_ECHO_START(" PIDDEBUG ");
-        SERIAL_ECHO(e);
-        SERIAL_ECHO(": Input ");
-        SERIAL_ECHO(pid_input);
-        SERIAL_ECHO(" Output ");
-        SERIAL_ECHO(pid_output);
-        SERIAL_ECHO(" pTerm ");
-        SERIAL_ECHO(pTerm[e]);
-        SERIAL_ECHO(" iTerm ");
-        SERIAL_ECHO(iTerm[e]);
-        SERIAL_ECHO(" dTerm ");
-        SERIAL_ECHOLN(dTerm[e]);  
-        #endif //PID_DEBUG
+        #ifdef ENABLE_DEBUG
+        if((debug_flags & PID_DEBUG) != 0) {
+          SERIAL_ECHO_START;
+          SERIAL_ECHO(" PIDDEBUG ");
+          SERIAL_ECHO(e);
+          SERIAL_ECHO(": Input ");
+          SERIAL_ECHO(pid_input);
+          SERIAL_ECHO(" Output ");
+          SERIAL_ECHO(pid_output);
+          SERIAL_ECHO(" pTerm ");
+          SERIAL_ECHO(pTerm[e]);
+          SERIAL_ECHO(" iTerm ");
+          SERIAL_ECHO(iTerm[e]);
+          SERIAL_ECHO(" dTerm ");
+          SERIAL_ECHOLN(dTerm[e]);
+        }
+        #endif //ENABLE_DEBUG
     }
     #ifdef PID_FUNCTIONAL_RANGE
     else
     #endif // PID_FUNCTIONAL_RANGE
 #endif // PIDTEMP
     {
-        #if defined(PID_DEBUG) && defined(PID_FUNCTIONAL_RANGE)
-        SERIAL_ECHO_START(" PIDDEBUG ");
-        SERIAL_ECHO(e);
-        SERIAL_ECHO(": PID Off");
-        SERIAL_ECHO(" DistToTgt ");
-        SERIAL_ECHOLN(abs(pid_setpoint[e] - pid_input));
-        #endif //PID_DEBUG && PID_FUNCTIONAL_RANGE
+        #if defined(ENABLE_DEBUG) && defined(PID_FUNCTIONAL_RANGE)
+        if((debug_flags & PID_DEBUG) != 0) {
+          SERIAL_ECHO_START;
+          SERIAL_ECHO(" PIDDEBUG ");
+          SERIAL_ECHO(e);
+          SERIAL_ECHO(": PID Off");
+          SERIAL_ECHO(" DistToTgt ");
+          SERIAL_ECHOLN(abs(target_temperature[e] - pid_input));
+        }
+        #endif //ENABLE_DEBUG && PID_FUNCTIONAL_RANGE
         pid_output = 0;
         if(current_temperature[e] < target_temperature[e]) {
           pid_output = PID_MAX;
@@ -407,7 +418,6 @@ void manage_heater()
     #endif
 
   } // End extruder for loop
-  
 
   #ifndef PIDTEMPBED
   if(millis() - previous_millis_bed_heater < BED_CHECK_INTERVAL)
@@ -444,34 +454,15 @@ void manage_heater()
       else {
         soft_pwm_bed = 0;
       }
-
-    #elif !defined(BED_LIMIT_SWITCHING)
+    #else // PIDTEMPBED
       // Check if temperature is within the correct range
-      if((current_temperature_bed > BED_MINTEMP) && (current_temperature_bed < BED_MAXTEMP))
-      {
-        if(current_temperature_bed >= target_temperature_bed)
-        {
-          soft_pwm_bed = 0;
-        }
-        else 
-        {
-          soft_pwm_bed = MAX_BED_POWER>>1;
-        }
-      }
-      else
-      {
-        soft_pwm_bed = 0;
-        WRITE(HEATER_BED_PIN,LOW);
-      }
-    #else //#ifdef BED_LIMIT_SWITCHING
-      // Check if temperature is within the correct band
       if((current_temperature_bed > BED_MINTEMP) && (current_temperature_bed < BED_MAXTEMP))
       {
         if(current_temperature_bed > target_temperature_bed + BED_HYSTERESIS)
         {
           soft_pwm_bed = 0;
         }
-        else if(current_temperature_bed <= target_temperature_bed - BED_HYSTERESIS)
+        else if(current_temperature_bed < target_temperature_bed - BED_HYSTERESIS)
         {
           soft_pwm_bed = MAX_BED_POWER>>1;
         }
@@ -481,8 +472,8 @@ void manage_heater()
         soft_pwm_bed = 0;
         WRITE(HEATER_BED_PIN,LOW);
       }
-    #endif
-  #endif
+    #endif // PIDTEMPBED
+  #endif // TEMP_SENSOR_BED
 }
 
 #define PGM_RD_W(x)   (short)pgm_read_word(&x)
@@ -611,14 +602,16 @@ void tp_init()
   #if (HEATER_BED_PIN > -1) 
     SET_OUTPUT(HEATER_BED_PIN);
   #endif  
-  #if !defined(PER_EXTRUDER_FANS) && (FAN_PIN > -1) 
+  #ifndef PER_EXTRUDER_FANS 
+    #if FAN_PIN > -1 
     SET_OUTPUT(FAN_PIN);
     #ifdef FAST_PWM_FAN
     setPwmFrequency(FAN_PIN, 1); // No prescaling. Pwm frequency = F_CPU/256/8
-    #endif
+    #endif // FAST_PWM_FAN
     #ifdef FAN_SOFT_PWM
     soft_pwm_fan=fanSpeed[0];
-    #endif
+    #endif // FAN_SOFT_PWM
+    #endif // FAN_PIN > -1 
   #endif
 
   #ifdef HEATER_0_USES_MAX6675

@@ -186,7 +186,9 @@
 	#define MSG_DBG_FLAG "Debug flag:"
 	#define MSG_FOLLOWME_MODE "Follw-me mode status:"
 	#define MSG_SAVED_POS "Saved position"
-   #define MSG_RESTORING_POS "Restoring position"
+	#define MSG_RESTORING_POS "Restoring position"
+	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
+	#define MSG_CCOMP_TABLE "Compensation table:"
 
 #endif
 
@@ -344,7 +346,9 @@
 	#define MSG_DBG_FLAG "Debug flag:"
 	#define MSG_FOLLOWME_MODE "Follw-me mode status:"
 	#define MSG_SAVED_POS "Saved position"
-   #define MSG_RESTORING_POS "Restoring position"
+	#define MSG_RESTORING_POS "Restoring position"
+	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
+	#define MSG_CCOMP_TABLE "Compensation table:"
 
 #endif
 
@@ -507,6 +511,8 @@
 #define MSG_FOLLOWME_MODE "Follw-me mode status:"
 #define MSG_SAVED_POS "Saved position"
 #define MSG_RESTORING_POS "Restoring position"
+#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
+#define MSG_CCOMP_TABLE "Compensation table:"
 	
 #endif
 
@@ -666,7 +672,9 @@
 	#define MSG_DBG_FLAG "Debug flag:"
 	#define MSG_FOLLOWME_MODE "Follw-me mode status:"
 	#define MSG_SAVED_POS "Saved position"
-   #define MSG_RESTORING_POS "Restoring position"
+	#define MSG_RESTORING_POS "Restoring position"
+	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
+	#define MSG_CCOMP_TABLE "Compensation table:"
 
 #endif
 
@@ -826,6 +834,8 @@
 #define MSG_FOLLOWME_MODE "Follw-me mode status:"
 #define MSG_SAVED_POS "Saved position"
 #define MSG_RESTORING_POS "Restoring position"
+#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
+#define MSG_CCOMP_TABLE "Compensation table:"
 
 #endif
 
@@ -978,6 +988,8 @@
 #define MSG_FOLLOWME_MODE              "Follw-me mode status:"
 #define MSG_SAVED_POS                  "Saved position"
 #define MSG_RESTORING_POS              "Restoring position"
+#define MSG_CCOMP_INVALID_POS          "Invalid compensation table row index:"
+#define MSG_CCOMP_TABLE                "Compensation table:"
 
 #endif
 
@@ -1135,7 +1147,9 @@
 	#define MSG_DBG_FLAG             "Debug flag:"
 	#define MSG_FOLLOWME_MODE        "Follw-me mode status:"
 	#define MSG_SAVED_POS            "Saved position"
-   #define MSG_RESTORING_POS        "Restoring position"
+	#define MSG_RESTORING_POS        "Restoring position"
+	#define MSG_CCOMP_INVALID_POS    "Invalid compensation table row index:"
+	#define MSG_CCOMP_TABLE          "Compensation table:"
 
 #endif
 
@@ -1299,7 +1313,9 @@
 	#define MSG_DBG_FLAG "Debug flag:"
 	#define MSG_FOLLOWME_MODE "Follw-me mode status:"
 	#define MSG_SAVED_POS "Saved position"
-   #define MSG_RESTORING_POS "Restoring position"
+	#define MSG_RESTORING_POS "Restoring position"
+	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
+	#define MSG_CCOMP_TABLE "Compensation table:"
 
 #endif
 

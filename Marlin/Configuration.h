@@ -85,10 +85,10 @@
 // 52 is 200k thermistor - ATC Semitec 204GT-2 (1k pullup)
 // 55 is 100k thermistor - ATC Semitec 104GT-2 (Used in ParCan) (1k pullup)
 
-#define TEMP_SENSOR_0 -1
-#define TEMP_SENSOR_1 0
+#define TEMP_SENSOR_0 1
+#define TEMP_SENSOR_1 1
 #define TEMP_SENSOR_2 0
-#define TEMP_SENSOR_BED 0
+#define TEMP_SENSOR_BED 1
 
 // Actual temperature must be close to target for this long before M109 returns success
 #define TEMP_RESIDENCY_TIME 30  // (seconds)
@@ -112,17 +112,11 @@
 #define HEATER_2_MAXTEMP 275
 #define BED_MAXTEMP 150
 
-// If your bed has low resistance e.g. .6 ohm and throws the fuse you can duty cycle it to reduce the
-// average current. The value should be an integer and the heat bed will be turned on for 1 interval of
-// HEATER_BED_DUTY_CYCLE_DIVIDER intervals.
-//#define HEATER_BED_DUTY_CYCLE_DIVIDER 4
-
 // PID settings:
 // Comment the following line to disable PID and enable bang-bang.
 #define PIDTEMP
 #define PID_MAX 256 // limits current to nozzle; 256=full current
 #ifdef PIDTEMP
-  //#define PID_DEBUG // Sends debug data to the serial port. 
   //#define PID_OPENLOOP 1 // Puts PID in open loop. M104/M140 sets the output power from 0 to PID_MAX
   #define PID_INTEGRAL_DRIVE_MAX 255  //limit for the integral term
   #define K1 0.95 //smoothing factor withing the PID
@@ -195,7 +189,8 @@
 #endif // PIDTEMP
 
 // Bed Temperature Control
-// Select PID or bang-bang with PIDTEMPBED. If bang-bang, BED_LIMIT_SWITCHING will enable hysteresis
+// Select PID bed temperature control by defining PIDTEMPBED. 
+// If not defined traditional on/off method is used and BED_HYSTERESIS in advanced sets the hysteresis loop range.
 //
 // uncomment this to enable PID on the bed. It uses the same ferquency PWM as the extruder. 
 // If your PID_dT above is the default, and correct for your hardware/configuration, that means 7.689Hz,
@@ -205,11 +200,9 @@
 // shouldn't use bed PID until someone else verifies your hardware works.
 // If this is enabled, find your own PID constants below.
 //#define PIDTEMPBED
-//
-//#define BED_LIMIT_SWITCHING
 
 // This sets the max power delived to the bed, and replaces the HEATER_BED_DUTY_CYCLE_DIVIDER option.
-// all forms of bed control obey this (PID, bang-bang, bang-bang with hysteresis)
+// all forms of bed control obey this (PID and bang-bang)
 // setting this to anything other than 256 enables a form of PWM to the bed just like HEATER_BED_DUTY_CYCLE_DIVIDER did,
 // so you shouldn't use it unless you are OK with PWM on your bed.  (see the comment on enabling PIDTEMPBED)
 #define MAX_BED_POWER 256 // limits duty cycle to bed; 256=full current
@@ -232,21 +225,19 @@
 
 
 
-//this prevents dangerous Extruder moves, i.e. if the temperature is under the limit
-//can be software-disabled for whatever purposes by
+// PREVENT_DANGEROUS_EXTRUDE prevents dangerous Extruder moves.
+// If it is defined, then you can define EXTRUDE_MINTEMP to limit the minimum allowed extrusion temperature 
+// and/or EXTRUDE_MAXLENGTH to limit the maximum allowed filament extrusion length for any single move. 
 #define PREVENT_DANGEROUS_EXTRUDE
-//if PREVENT_DANGEROUS_EXTRUDE is on, you can still disable (uncomment) very long bits of extrusion separately.
-#define PREVENT_LENGTHY_EXTRUDE
-
-#define EXTRUDE_MINTEMP 170
-#define EXTRUDE_MAXLENGTH (X_MAX_LENGTH+Y_MAX_LENGTH) //prevent extrusion of very large distances.
+#define EXTRUDE_MINTEMP 170 // in deg
+#define EXTRUDE_MAXLENGTH 100 //in mm
 
 //===========================================================================
 //=============================Mechanical Settings===========================
 //===========================================================================
 
 // Uncomment the following line to enable CoreXY kinematics
-// #define COREXY
+//#define COREXY
 
 // corse Endstop Settings
 #define ENDSTOPPULLUPS // Comment this out (using // at the start of the line) to disable the endstop pullup resistors
@@ -315,7 +306,7 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 #define max_software_endstops true  // If true, axis won't move to coordinates greater than the defined lengths below.
 
 // Travel limits after homing (use defines for dual drives if enabled for axes)
-// For dual drive on an axis use numbered variations of the define and comment out the unnumberd.
+// For dual drive on an axis use numbered variations of the define and comment out the unnumbered.
 //#define X_MAX_POS 250
 #define X0_MAX_POS 250
 #define X1_MAX_POS 295
@@ -332,10 +323,12 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 #define Z_MIN_POS 0
 
 // What's the max move distance along an axis? For dual drievs use the greatest.
-#define X_MAX_LENGTH (X_MAX_POS - X_MIN_POS) 
-// #define X_MAX_LENGTH (X1_MAX_POS - X1_MIN_POS) 
+// #define X_MAX_LENGTH (X_MAX_POS - X_MIN_POS) 
+#define X_MAX_LENGTH (X1_MAX_POS - X0_MIN_POS) 
+// #define X_MAX_LENGTH (X0_MAX_POS - X1_MIN_POS) 
 #define Y_MAX_LENGTH (Y_MAX_POS - Y_MIN_POS)
-// #define Y_MAX_LENGTH (Y1_MAX_POS - Y1_MIN_POS)
+// #define Y_MAX_LENGTH (Y1_MAX_POS - Y0_MIN_POS)
+// #define Y_MAX_LENGTH (Y0_MAX_POS - Y1_MIN_POS)
 #define Z_MAX_LENGTH (Z_MAX_POS - Z_MIN_POS)
 
 //The BED_CENTER_AT_0_0 is not supported anymore, use *_MIN_POS and *_MAX_POS instead
@@ -356,13 +349,9 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 #define HOMING_FEEDRATE {30*60, 30*60, 2*60, 0}  // set the homing speeds (mm/min)
 
 // Homing hits the endstop, then retracts by this distance, before it tries to slowly bump again.
-// For dual drive on an axis use numbered variations of the define and comment out the unnumberd.
-// #define X_HOME_RETRACT_MM 5 
-#define X0_HOME_RETRACT_MM  5 
-#define X1_HOME_RETRACT_MM -5 
+// For dual drives on an axis the same value is used for both drives.
+#define X_HOME_RETRACT_MM 5 
 #define Y_HOME_RETRACT_MM 5 
-// #define Y0_HOME_RETRACT_MM  5 
-// #define Y1_HOME_RETRACT_MM -5 
 #define Z_HOME_RETRACT_MM 1 
 
 // Offset of the extruders (uncomment if using more than one and relying on firmware to position when changing).
@@ -370,13 +359,13 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 // For the other hotends it is their distance from the extruder 0 hotend.
 // Note: the extruder offset for multiple extruder machines with dual drive on an axis should be set to 0 
 //       for that axis. On that axis the positioning is controlled by the the coordinates of the homing 
-//       switches (i.e. *_MAX_POS/*_MIN_POS or MANUAL_*_HOME_POS if MANUAL_HOME_POSITIONS is defined).
+//       switches (i.e. *_MAX_POS/*_MIN_POS or MANUAL_*_HOME_POS if MANUAL_HOME_POSITIONS if defined).
 #define EXTRUDER_OFFSET_X {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the X axis
 #define EXTRUDER_OFFSET_Y {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the Y axis
 
 // default settings 
 #define DEFAULT_AXIS_STEPS_PER_UNIT   {80.3232, 80.8900, 2284.7651, 757.2218, 737.5537} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
-#define DEFAULT_MAX_FEEDRATE          {500, 500, 7, 50, 50} // X,Y,Z,E0...(mm/sec)    
+#define DEFAULT_MAX_FEEDRATE          {500, 500, 7, 45, 45} // X,Y,Z,E0...(mm/sec)    
 #define DEFAULT_MAX_ACCELERATION      {9000,9000,100,9000,9000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
 #define DEFAULT_RETRACT_ACCELERATION  {90000,90000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
 #define DEFAULT_ACCELERATION          3000   // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
@@ -395,14 +384,15 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 // M501 - reads parameters from EEPROM (if you need reset them after you changed them temporarily).  
 // M502 - reverts to the default "factory settings".  You still need to store them in EEPROM afterwards if you want to.
 //define this to enable eeprom support
-//#define EEPROM_SETTINGS
+#define EEPROM_SETTINGS
+
 //to disable EEPROM Serial responses and decrease program space by ~1700 byte: comment this out:
 // please keep turned on if you can.
-//#define EEPROM_CHITCHAT
+#define EEPROM_CHITCHAT
 
 //LCD and SD support
 //#define ULTRA_LCD  //general lcd support, also 16x2
-//#define SDSUPPORT // Enable SD Card Support in Hardware Console
+#define SDSUPPORT // Enable SD Card Support in Hardware Console
 
 //#define ULTIMAKERCONTROLLER //as available from the ultimaker online store.
 //#define ULTIPANEL  //the ultipanel as on thingiverse
@@ -422,13 +412,13 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 #endif 
 
 // Preheat Constants
-#define PLA_PREHEAT_HOTEND_TEMP 180 
-#define PLA_PREHEAT_HPB_TEMP 70
-#define PLA_PREHEAT_FAN_SPEED 255		// Insert Value between 0 and 255
+#define PLA_PREHEAT_HOTEND_TEMP 178 
+#define PLA_PREHEAT_HPB_TEMP 80
+#define PLA_PREHEAT_FAN_SPEED 128		// Insert Value between 0 and 255
 
-#define ABS_PREHEAT_HOTEND_TEMP 240
-#define ABS_PREHEAT_HPB_TEMP 100
-#define ABS_PREHEAT_FAN_SPEED 255		// Insert Value between 0 and 255
+#define ABS_PREHEAT_HOTEND_TEMP 220
+#define ABS_PREHEAT_HPB_TEMP 110
+#define ABS_PREHEAT_FAN_SPEED 100		// Insert Value between 0 and 255
 
 #ifdef ULTIPANEL
 //  #define NEWPANEL  //enable this if you have a click-encoder panel

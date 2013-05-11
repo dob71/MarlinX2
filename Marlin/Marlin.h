@@ -36,7 +36,6 @@
 
 #include "MarlinSerial.h"
 
-<<<<<<< HEAD
 #ifndef cbi
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #endif
@@ -58,8 +57,8 @@
 #define SERIAL_PROTOCOLLN(x) {MYSERIAL.print(x);MYSERIAL.write('\n');}
 #define SERIAL_PROTOCOLLNPGM(x) {serialprintPGM(PSTR(x));MYSERIAL.write('\n');}
 
-const char errormagic[] PROGMEM ="Error:";
-const char echomagic[] PROGMEM ="echo:";
+extern const char errormagic[];
+extern const char echomagic[];
 
 #define SERIAL_ERROR_START serialprintPGM(errormagic);
 #define SERIAL_ERROR(x) SERIAL_PROTOCOL(x)
@@ -72,12 +71,13 @@ const char echomagic[] PROGMEM ="echo:";
 #define SERIAL_ECHOPGM(x) SERIAL_PROTOCOLPGM(x)
 #define SERIAL_ECHOLN(x) SERIAL_PROTOCOLLN(x)
 #define SERIAL_ECHOLNPGM(x) SERIAL_PROTOCOLLNPGM(x)
-
 #define SERIAL_ECHOPAIR(name,value) (serial_echopair_P(PSTR(name),(value)))
 
 void serial_echopair_P(const char *s_P, float v);
 void serial_echopair_P(const char *s_P, double v);
 void serial_echopair_P(const char *s_P, unsigned long v);
+void serial_echopair_P(const char *s_P, int v);
+void serial_echopair_P(const char *s_P, const char *v);
 
 // Macro for getting current active extruder
 #define ACTIVE_EXTRUDER ((int)active_extruder)
@@ -101,14 +101,12 @@ void manage_inactivity();
   #define enable_x() WRITE(X_ENABLE_PIN, X_ENABLE_ON)
   #define disable_x() WRITE(X_ENABLE_PIN,!X_ENABLE_ON)
 #elif defined(DUAL_X_DRIVE) && (X0_ENABLE_PIN > -1) && (X1_ENABLE_PIN > -1)
-  #define enable_x() ((ACTIVE_EXTRUDER == 0)?(WRITE(X0_ENABLE_PIN, X_ENABLE_ON)):\
-                                             (WRITE(X1_ENABLE_PIN, X_ENABLE_ON)))
-  #define disable_x() ((ACTIVE_EXTRUDER == 0)?(WRITE(X0_ENABLE_PIN, X_ENABLE_ON)):\
-                                              (WRITE(X1_ENABLE_PIN, X_ENABLE_ON)))
   #define enable_x0()  WRITE(X0_ENABLE_PIN, X_ENABLE_ON)
   #define disable_x0() WRITE(X0_ENABLE_PIN,!X_ENABLE_ON)
   #define enable_x1()  WRITE(X1_ENABLE_PIN, X_ENABLE_ON)
   #define disable_x1() WRITE(X1_ENABLE_PIN,!X_ENABLE_ON)
+  #define enable_x()   { enable_x0(); enable_x1(); }
+  #define disable_x()  { disable_x0(); disable_x1(); }
 #else
   #define enable_x() /* nothing */
   #define disable_x() /* nothing */
@@ -122,14 +120,12 @@ void manage_inactivity();
   #define enable_y() WRITE(Y_ENABLE_PIN, Y_ENABLE_ON)
   #define disable_y() WRITE(Y_ENABLE_PIN,!Y_ENABLE_ON)
 #elif defined(DUAL_Y_DRIVE) && (Y0_ENABLE_PIN > -1) && (Y1_ENABLE_PIN > -1)
-  #define enable_y() ((ACTIVE_EXTRUDER==0)?(WRITE(Y0_ENABLE_PIN, Y_ENABLE_ON)):\
-                                           (WRITE(Y1_ENABLE_PIN, Y_ENABLE_ON)))
-  #define disable_y() ((ACTIVE_EXTRUDER==0)?(WRITE(Y0_ENABLE_PIN, Y_ENABLE_ON)):\
-                                            (WRITE(Y1_ENABLE_PIN, Y_ENABLE_ON)))
   #define enable_y0()  WRITE(Y0_ENABLE_PIN, Y_ENABLE_ON)
   #define disable_y0() WRITE(Y0_ENABLE_PIN,!Y_ENABLE_ON)
   #define enable_y1()  WRITE(Y1_ENABLE_PIN, Y_ENABLE_ON)
   #define disable_y1() WRITE(Y1_ENABLE_PIN,!Y_ENABLE_ON)
+  #define enable_y()   { enable_y0(); enable_y1(); }
+  #define disable_y()  { disable_y0(); disable_y1(); }
 #else
   #define enable_y() /* nothing */ 
   #define disable_y() /* nothing */
@@ -196,7 +192,7 @@ void prepare_arc_move(char isclockwise);
 void clamp_to_software_endstops(float target[3]);
 
 #ifdef FAST_PWM_FAN
-void setPwmFrequency(uint8_t pin, int val);
+   void setPwmFrequency(uint8_t pin, int val);
 #endif
 
 #ifndef CRITICAL_SECTION_START
@@ -208,50 +204,57 @@ extern float homing_feedrate[];
 extern bool  axis_relative_modes[];
 extern int   feedmultiply;
 extern int   extrudemultiply; // Sets extrude multiply factor (in percent)
-extern float current_position[NUM_AXIS] ;
-#ifdef ENABLE_ADD_HOMEING
-extern float add_homeing[EXTRUDERS][3];
-#endif // ENABLE_ADD_HOMEING
+extern float current_position[NUM_AXIS];
 extern float extruder_offset[2][EXTRUDERS];
 extern unsigned char fanSpeed[EXTRUDERS];
 
+#ifdef ENABLE_ADD_HOMEING
+  extern float add_homeing[EXTRUDERS][3];
+#endif // ENABLE_ADD_HOMEING
+
 #ifdef DUAL_X_DRIVE
-  extern int gInvertXDir[EXTRUDERS] = {INVERT_X0_DIR, INVERT_X1_DIR};
-  extern int gXHomeDir[EXTRUDERS] = {X0_HOME_DIR, X1_HOME_DIR};
-  extern float gXMaxPos[EXTRUDERS] = {X0_MAX_POS, X1_MAX_POS};
-  extern float gXMinPos[EXTRUDERS] = {X0_MIN_POS, X1_MIN_POS};
-  #ifdef MANUAL_HOME_POSITIONS
-    extern float gManualXHomePos[EXTRUDERS] = {MANUAL_X0_HOME_POS, MANUAL_X1_HOME_POS};
-  #endif // MANUAL_HOME_POSITIONS
-  extern float gXHomeRetract[EXTRUDERS] = {X0_HOME_RETRACT_MM, X1_HOME_RETRACT_MM};
+  extern float gXMaxPos[EXTRUDERS];
+  extern float gXMinPos[EXTRUDERS];
 #endif // DUAL_X_DRIVE
   
 #ifdef DUAL_Y_DRIVE
-  extern int gInvertYDir[EXTRUDERS] = {INVERT_Y0_DIR, INVERT_Y1_DIR};
-  extern int gYHomeDir[EXTRUDERS] = {Y0_HOME_DIR, Y1_HOME_DIR};
-  extern float gYMaxPos[EXTRUDERS] = {Y0_MAX_POS, Y1_MAX_POS};
-  extern float gYMinPos[EXTRUDERS] = {Y0_MIN_POS, Y1_MIN_POS};
-  #ifdef MANUAL_HOME_POSITIONS
-    extern float gManualYHomePos[EXTRUDERS] = {MANUAL_Y0_HOME_POS, MANUAL_Y1_HOME_POS};
-  #endif // MANUAL_HOME_POSITIONS
-  extern float gYHomeRetract[EXTRUDERS] = {Y0_HOME_RETRACT_MM, Y1_HOME_RETRACT_MM};
+  extern float gYMaxPos[EXTRUDERS];
+  extern float gYMinPos[EXTRUDERS];
 #endif // DUAL_Y_DRIVE
 
+#ifdef C_COMPENSATION
+  extern float gCComp[][EXTRUDERS][2];
+  extern int gCComp_size[EXTRUDERS];
+  extern int gCComp_max_size;
+#endif // C_COMPENSATION
+
 #ifdef FWRETRACT
-extern bool  autoretract_enabled;
-extern bool  retracted;
-extern float retract_length, retract_feedrate, retract_zlift;
-extern float retract_recover_length, retract_recover_feedrate;
+  extern bool  autoretract_enabled;
+  extern bool  retracted;
+  extern float retract_length, retract_feedrate, retract_zlift;
+  extern float retract_recover_length, retract_recover_feedrate;
 #endif
 
 #ifdef PER_EXTRUDER_FANS
-extern int fan_pin[EXTRUDERS];
+  extern int fan_pin[EXTRUDERS];
 #endif
+
+#if EXTRUDERS > 1
+  extern uint8_t follow_me; // Bitmask of the follow me mode state
+  extern bool follow_me_heater; // Follw the hotend temperature changes
+  #ifdef PER_EXTRUDER_FANS
+    extern bool follow_me_fan; // Follw the fan speed changes
+  #endif // PER_EXTRUDER_FANS
+#endif // EXTRUDERS > 1
 
 extern unsigned long starttime;
 extern unsigned long stoptime;
 
-extern unsigned int debug_flags;
+#ifdef ENABLE_DEBUG
+  extern unsigned int debug_flags;
+  #define C_COMPENSATION_DEBUG 0x0001
+  #define PID_DEBUG            0x0002
+#endif // ENABLE_DEBUG
 
 // Handling multiple extruders pins
 extern uint8_t active_extruder;

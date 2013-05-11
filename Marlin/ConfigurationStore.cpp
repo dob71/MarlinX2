@@ -64,7 +64,8 @@ void Config_StoreSettings()
   EEPROM_WRITE_VAR(i,add_homeing);
   #else  // ENABLE_ADD_HOMEING
   for(int ii = 0; ii < EXTRUDERS * 3; ii++) {
-    EEPROM_WRITE_VAR(i,((float)0));
+    float z = 0.0;
+    EEPROM_WRITE_VAR(i,z);
   }
   #endif // ENABLE_ADD_HOMEING
   EEPROM_WRITE_VAR(i,extruder_offset);
@@ -136,7 +137,6 @@ void Config_PrintSettings()
     SERIAL_ECHOPAIR(" Z", max_feedrate[2] ); 
     SERIAL_ECHOPAIR(" E", max_feedrate[3]);
     SERIAL_ECHOLN("");
-    }
     #if (EXTRUDERS > 1)
     for(i = 1; i < EXTRUDERS; i++)
     {
@@ -237,13 +237,13 @@ void Config_RetrieveSettings()
     char stored_ver[4];
     char ver[4]=EEPROM_VERSION;
     int extruders = 0;
-    EEPROM_readAnything(i, stored_ver); //read stored version
-    if ((!def) && (strncmp(ver, stored_ver, 3) == 0)) 
+    EEPROM_READ_VAR(i, stored_ver); //read stored version
+    if (strncmp(ver, stored_ver, 3) == 0) 
     {   // version number match, now get the number of extruders
-       EEPROM_readAnything(i, extruders); //read number of extruders
+       EEPROM_READ_VAR(i, extruders); //read number of extruders
     }
     //  SERIAL_ECHOLN("Version: [" << ver << "] Stored version: [" << stored_ver << "]");
-    if ((!def) && (strncmp(ver,stored_ver,3) == 0) && (extruders == EXTRUDERS)) 
+    if ((strncmp(ver,stored_ver,3) == 0) && (extruders == EXTRUDERS))
     {   // version and extruders numbers match
       EEPROM_READ_VAR(i,axis_steps_per_unit);  
       EEPROM_READ_VAR(i,max_feedrate);  
@@ -256,8 +256,15 @@ void Config_RetrieveSettings()
       EEPROM_READ_VAR(i,max_xy_jerk);
       EEPROM_READ_VAR(i,max_z_jerk);
       EEPROM_READ_VAR(i,max_e_jerk);
-      EEPROM_READ_VAR(i,add_homing);
-      EEPROM_readAnything(i,extruder_offset);
+      #ifdef ENABLE_ADD_HOMEING
+      EEPROM_READ_VAR(i,add_homeing);
+      #else // ENABLE_ADD_HOMEING
+      float z;
+      EEPROM_READ_VAR(i,z);
+      EEPROM_READ_VAR(i,z);
+      EEPROM_READ_VAR(i,z);
+      #endif // ENABLE_ADD_HOMEING
+      EEPROM_READ_VAR(i,extruder_offset);
       #ifndef ULTIPANEL
       int plaPreheatHotendTemp;
       int plaPreheatHPBTemp;

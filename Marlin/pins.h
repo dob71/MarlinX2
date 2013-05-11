@@ -340,21 +340,17 @@
 #  define X_STEP_PIN       54
 #  define X_DIR_PIN        55
 #  define X_ENABLE_PIN     38
-#  define X_MIN_PIN         3
-#  define X_MAX_PIN         2
 #else  // DUAL_X_DRIVE
 #  define X0_STEP_PIN      54
 #  define X0_DIR_PIN       55
 #  define X0_ENABLE_PIN    38
-#  define X0_MIN_PIN        3
-#  define X0_MAX_PIN        2
 // These secondary X drive pins are for RepRap X2v3 extension board
 #  define X1_STEP_PIN      47
 #  define X1_DIR_PIN       32
 #  define X1_ENABLE_PIN    45
-#  define X1_MIN_PIN        3
-#  define X1_MAX_PIN        2
 #endif // DUAL_X_DRIVE
+#define X_MIN_PIN           3
+#define X_MAX_PIN           2
 
 #define Y_STEP_PIN         60
 #define Y_DIR_PIN          61
@@ -1563,8 +1559,21 @@
 #define Z_MAX_PIN          -1
 #endif
 
-#define SENSITIVE_PINS {0, 1, X_STEP_PIN, X_DIR_PIN, X_ENABLE_PIN, X_MIN_PIN, X_MAX_PIN, Y_STEP_PIN, Y_DIR_PIN, Y_ENABLE_PIN, Y_MIN_PIN, Y_MAX_PIN, Z_STEP_PIN, Z_DIR_PIN, Z_ENABLE_PIN, Z_MIN_PIN, Z_MAX_PIN, PS_ON_PIN, \
-                        HEATER_BED_PIN, FAN_PIN,                  \
-                        _E0_PINS _E1_PINS _E2_PINS             \
+#ifndef DUAL_X_DRIVE
+#  define X_SENSITIVE_PINS X_STEP_PIN, X_DIR_PIN, X_ENABLE_PIN, X_MIN_PIN, X_MAX_PIN
+#else // DUAL_X_DRIVE
+#  define X_SENSITIVE_PINS X0_STEP_PIN, X0_DIR_PIN, X0_ENABLE_PIN, X1_STEP_PIN, X1_DIR_PIN, X1_ENABLE_PIN, X_MIN_PIN, X_MAX_PIN
+#endif // DUAL_X_DRIVE
+
+#ifndef DUAL_Y_DRIVE
+#  define Y_SENSITIVE_PINS Y_STEP_PIN, Y_DIR_PIN, Y_ENABLE_PIN, Y_MIN_PIN, Y_MAX_PIN
+#else // DUAL_Y_DRIVE
+#  define Y_SENSITIVE_PINS Y0_STEP_PIN, Y0_DIR_PIN, Y0_ENABLE_PIN, Y1_STEP_PIN, Y1_DIR_PIN, Y1_ENABLE_PIN, Y_MIN_PIN, Y_MAX_PIN
+#endif // DUAL_Y_DRIVE
+
+#define SENSITIVE_PINS {0, 1, X_SENSITIVE_PINS, Y_SENSITIVE_PINS, \
+                        Z_STEP_PIN, Z_DIR_PIN, Z_ENABLE_PIN, Z_MIN_PIN, Z_MAX_PIN, \
+                        PS_ON_PIN, HEATER_BED_PIN, FAN_PIN, \
+                        _E0_PINS _E1_PINS _E2_PINS \
                         analogInputToDigitalPin(TEMP_0_PIN), analogInputToDigitalPin(TEMP_1_PIN), analogInputToDigitalPin(TEMP_2_PIN), analogInputToDigitalPin(TEMP_BED_PIN) }
 #endif

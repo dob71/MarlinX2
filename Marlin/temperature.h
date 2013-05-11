@@ -43,7 +43,6 @@ extern float current_temperature_bed;
   #ifdef PID_FUNCTIONAL_RANGE
   extern float Kr;
   #endif
-  extern float pid_setpoint[EXTRUDERS];
 #endif
 #ifdef PIDTEMPBED
   extern float bedKp,bedKi,bedKd;
@@ -91,6 +90,11 @@ FORCE_INLINE bool isCoolingHotend(uint8_t extruder) {
 
 FORCE_INLINE bool isCoolingBed() {
   return target_temperature_bed < current_temperature_bed;
+};
+
+FORCE_INLINE bool isDoneHeatingBed() {
+  return (target_temperature_bed != 0) && 
+         (abs(target_temperature_bed - current_temperature_bed) <= TEMP_WINDOW_BED);
 };
 
 #define degHotend0() degHotend(0)

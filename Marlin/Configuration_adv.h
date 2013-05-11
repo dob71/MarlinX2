@@ -5,9 +5,7 @@
 //=============================Thermal Settings  ============================
 //===========================================================================
 
-#ifdef BED_LIMIT_SWITCHING
-  #define BED_HYSTERESIS 2 //only disable heating if T>target+BED_HYSTERESIS and enable heating if T>target-BED_HYSTERESIS
-#endif
+#define BED_HYSTERESIS 1 //only disable heating if T>target+BED_HYSTERESIS and enable heating if T>target-BED_HYSTERESIS
 #define BED_CHECK_INTERVAL 5000 //ms between checks in bang-bang control
 
 //// Heating sanity check:
@@ -55,6 +53,10 @@
 // The measured temperature is defined as "actualTemp = (measuredTemp * TEMP_SENSOR_AD595_GAIN) + TEMP_SENSOR_AD595_OFFSET"
 #define TEMP_SENSOR_AD595_OFFSET 0.0
 #define TEMP_SENSOR_AD595_GAIN   1.0
+
+// Enable this if in the follow-me mode you want the heaters of the 
+// slave hotends use the temperature setting of the active one.
+//#define FOLLOW_ME_HEATER
 
 // This is for controlling a fan to cool down the stepper drivers
 // it will turn on when any driver is enabled
@@ -117,11 +119,14 @@
 #else //Set min/max homing switch positions based upon homing direction and min/max travel limits
   //X axis
   #ifdef DUAL_X_DRIVE
-    #if X1_HOME_DIR == -1
+    #if X0_HOME_DIR == -1
       #define X0_HOME_POS X0_MIN_POS
-      #define X1_HOME_POS X1_MIN_POS
     #else    
       #define X0_HOME_POS X0_MAX_POS
+    #endif //X0_HOME_DIR == -1
+    #if X1_HOME_DIR == -1
+      #define X1_HOME_POS X1_MIN_POS
+    #else    
       #define X1_HOME_POS X1_MAX_POS
     #endif //X1_HOME_DIR == -1
   #else
@@ -134,11 +139,14 @@
   
   //Y axis
   #ifdef DUAL_Y_DRIVE
-    #if Y1_HOME_DIR == -1
+    #if Y0_HOME_DIR == -1
       #define Y0_HOME_POS Y0_MIN_POS
-      #define Y1_HOME_POS Y1_MIN_POS
     #else    
       #define Y0_HOME_POS Y0_MAX_POS
+    #endif //Y0_HOME_DIR == -1
+    #if Y1_HOME_DIR == -1
+      #define Y1_HOME_POS Y1_MIN_POS
+    #else    
       #define Y1_HOME_POS Y1_MAX_POS
     #endif //Y1_HOME_DIR == -1
   #else
@@ -337,7 +345,15 @@ const unsigned int dropsegments = 5;
     #define FILAMENTCHANGE_FINALRETRACT -100
   #endif
 #endif
- 
+
+
+//===========================================================================
+//===============================  Debugging  ===============================
+//===========================================================================
+
+// Uncomment to enable debugging code and M504 (set debug flugs) 
+// command. Look up the available flags in Marlin.h file.
+#define ENABLE_DEBUG
 
 //===========================================================================
 //=============================  Define Defines  ============================
@@ -392,25 +408,13 @@ const unsigned int dropsegments = 5;
 #endif
 
 #ifdef DUAL_X_DRIVE
-  #define INVERT_X_DIR gInvertXDir[ACTIVE_EXTRUDER]
-  #define X_HOME_DIR   gXHomeDir[ACTIVE_EXTRUDER]
   #define X_MAX_POS    gXMaxPos[ACTIVE_EXTRUDER]
   #define X_MIN_POS    gXMinPos[ACTIVE_EXTRUDER]
-  #ifdef MANUAL_HOME_POSITIONS
-    #define MANUAL_X_HOME_POS gManualXHomePos[ACTIVE_EXTRUDER]
-  #endif // MANUAL_HOME_POSITIONS
-  #define X_HOME_RETRACT_MM gXHomeRetract[ACTIVE_EXTRUDER]
 #endif // DUAL_X_DRIVE
   
 #ifdef DUAL_Y_DRIVE
-  #define INVERT_Y_DIR gInvertYDir[ACTIVE_EXTRUDER]
-  #define Y_HOME_DIR   gYHomeDir[ACTIVE_EXTRUDER]
   #define Y_MAX_POS    gYMaxPos[ACTIVE_EXTRUDER]
   #define Y_MIN_POS    gYMinPos[ACTIVE_EXTRUDER]
-  #ifdef MANUAL_HOME_POSITIONS
-    #define MANUAL_Y_HOME_POS gManualYHomePos[ACTIVE_EXTRUDER]
-  #endif // MANUAL_HOME_POSITIONS
-  #define Y_HOME_RETRACT_MM gYHomeRetract[ACTIVE_EXTRUDER]
 #endif // DUAL_Y_DRIVE
 
 #if (defined(DUAL_Y_DRIVE) || defined(DUAL_X_DRIVE)) && EXTRUDERS > 2

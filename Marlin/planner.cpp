@@ -162,6 +162,53 @@ FORCE_INLINE float intersection_distance(float initial_rate, float final_rate, f
   }
 }
 
+// Calculates the maximum allowable speed at this point when you must be able to reach target_velocity using the 
+// acceleration within the allotted distance.
+FORCE_INLINE float max_allowable_speed(float acceleration, float target_velocity, float distance) {
+  return  sqrt(target_velocity*target_velocity-2*acceleration*distance);
+}
+
+#ifdef C_COMPENSATION
+// Calculate compensation (in steps) for given E speeds and extruder
+FORCE_INLINE void calc_c_comp(unsigned long s1, long &c1, 
+                              unsigned long s2, long &c2, 
+                              unsigned long s3, long &c3, 
+                              uint8_t extruder)
+{
+  float low_bound = 0;
+  float low_comp = 0;
+  c1 = c2 = c3 = 0;
+  for(int ii = 0; ii < gCComp_size[extruder]; ii++) 
+  {
+    if(s1 < low_bound && s2 < low_bound && s3 < low_bound) {
+      return; 
+    }
+    float high_bound = gCComp[ii][extruder][0] * axis_steps_per_unit[E_AXIS + extruder];
+    float high_comp = gCComp[ii][extruder][1] * axis_steps_per_unit[E_AXIS + extruder];
+    float a = (low_bound - high_bound)/(low_comp - high_comp);
+    float b = (high_bound*low_comp - low_bound*high_comp)/(high_comp - low_comp);
+    if(s1 >= low_bound && s1 < high_bound) {
+      c1 = floor(a*s1 + b);
+    } else if(s1 > high_bound) {
+      c1 = floor(high_comp);
+    }
+    if(s2 >= low_bound && s2 < high_bound) {
+      c2 = floor(a*s2 + b);
+    } else if(s2 > high_bound) {
+      c2 = floor(high_comp);
+    }
+    if(s3 >= low_bound && s3 < high_bound) {
+      c3 = floor(a*s3 + b);
+    } else if(s3 > high_bound) {
+      c3 = floor(high_comp);
+    }
+    low_bound = high_bound;
+    low_comp = high_comp;
+  }
+  return;
+}
+#endif // C_COMPENSATION
+
 // Calculates trapezoid parameters so that the entry- and exit-speed is compensated by the provided factors.
 void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exit_factor) {
   unsigned long initial_rate = ceil(block->nominal_rate*entry_factor); // (step/min)
@@ -223,12 +270,6 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   }
   CRITICAL_SECTION_END;
 }                    
-
-// Calculates the maximum allowable speed at this point when you must be able to reach target_velocity using the 
-// acceleration within the allotted distance.
-FORCE_INLINE float max_allowable_speed(float acceleration, float target_velocity, float distance) {
-  return  sqrt(target_velocity*target_velocity-2*acceleration*distance);
-}
 
 // "Junction jerk" in this context is the immediate change in speed at the junction of two blocks.
 // This method will calculate the junction jerk as the euclidean distance between the nominal 
@@ -396,47 +437,6 @@ void plan_init() {
   previous_nominal_speed = 0.0;
 }
 
-#ifdef C_COMPENSATION
-// Calculate compensation (in steps) for given E speeds and extruder
-FORCE_INLINE void calc_e_comp(unsigned long s1, unsigned long &c1, 
-                              unsigned long s2, unsigned long &c2, 
-                              unsigned long s3, unsigned long &c3, 
-                              uint8_t extruder)
-{
-  float low_bound = 0;
-  float low_comp = 0;
-  c1 = c2 = c3 = 0;
-  for(int ii = 0; ii < gCComp_size[extruder]; ii++) 
-  {
-    if(s1 < low_bound && s2 < low_bound && s3 < low_bound) {
-      return; 
-    }
-    float high_bound = gCComp[ii][extruder][0] * axis_steps_per_unit[E_AXIS + extruder];
-    float high_comp = gCComp[ii][extruder][1] * axis_steps_per_unit[E_AXIS + extruder];
-    float a = (low_bound - high_bound)/(low_comp - high_comp);
-    float b = (high_bound*low_comp - low_bound*high_comp)/(high_comp - low_comp);
-    if(s1 >= low_bound && s1 < high_bound) {
-      c1 = floor(a*s1 + b);
-    } else if(s1 > high_bound) {
-      c1 = floor(high_comp);
-    }
-    if(s2 >= low_bound && s2 < high_bound) {
-      c2 = floor(a*s2 + b);
-    } else if(s2 > high_bound) {
-      c2 = floor(high_comp);
-    }
-    if(s3 >= low_bound && s3 < high_bound) {
-      c3 = floor(a*s3 + b);
-    } else if(s3 > high_bound) {
-      c3 = floor(high_comp);
-    }
-    low_bound = high_bound;
-    low_comp = high_comp;
-  }
-  return;
-}
-#endif // C_COMPENSATION
-
 #ifdef AUTOTEMP
 void getHighESpeed()
 {
@@ -514,12 +514,19 @@ void check_axes_activity()
     disable_e1();
     disable_e2(); 
   }
-#if (defined(PER_EXTRUDER_FANS) || (FAN_PIN > -1)) && !defined(FAN_SOFT_PWM)
+#ifndef FAN_SOFT_PWM
   for(uint8_t e = 0; e < EXTRUDERS; e++) 
   {
+    #ifdef PER_EXTRUDER_FANS
+    // Use fan speed of the active extruder for the followers
+    if(follow_me_fan && (follow_me & (1<<e)) != 0) {
+       tail_fan_speed[e] = block->fan_speed;
+       fanSpeed[e] = fanSpeed[ACTIVE_EXTRUDER];
+    }
+    #endif // PER_EXTRUDER_FANS
     #ifdef FAN_KICKSTART_TIME
     static unsigned long fan_kick_end[EXTRUDERS];
-    static uint8_t fan_prev_speed[EXTRUDER];
+    static uint8_t fan_prev_speed[EXTRUDERS];
     #ifndef PER_EXTRUDER_FANS
     if(e == ACTIVE_EXTRUDER) 
     #endif // PER_EXTRUDER_FANS
@@ -528,7 +535,7 @@ void check_axes_activity()
           // Starting up or bumping up the speed, kick start it
           fan_kick_end[e] = millis() + FAN_KICKSTART_TIME;
           tail_fan_speed[e] = 255;
-        } else if (fan_kick_end[e] > millis())
+        } else if (fan_kick_end[e] > millis()) {
           // Fan still spinning up.
           tail_fan_speed[e] = 255;
         } else {
@@ -541,14 +548,16 @@ void check_axes_activity()
       }
     #endif//FAN_KICKSTART_TIME
     #ifdef PER_EXTRUDER_FANS
-    analogWrite(fan_pin[e], tail_fan_speed[e]);
+    if(fan_pin[e] > -1) {
+      analogWrite(fan_pin[e], tail_fan_speed[e]);
+    }
     #else // PER_EXTRUDER_FANS
-    if(e == ACTIVE_EXTRUDER) {
+    if(e == ACTIVE_EXTRUDER && FAN_PIN > -1) {
       analogWrite(FAN_PIN, tail_fan_speed[e]);
     }
     #endif // PER_EXTRUDER_FANS
   } // end extruder loop
-#endif//(defined(PER_EXTRUDER_FANS) || (FAN_PIN > -1)) && !defined(FAN_SOFT_PWM)
+#endif // ! FAN_SOFT_PWM
 #ifdef AUTOTEMP
   getHighESpeed();
 #endif
@@ -596,14 +605,15 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   #ifdef PREVENT_DANGEROUS_EXTRUDE
   if(target[E_AXIS]!=position[E_AXIS])
   {
+    #ifdef EXTRUDE_MINTEMP
     if(degHotend(active_extruder)<EXTRUDE_MINTEMP && !allow_cold_extrude)
     {
       position[E_AXIS]=target[E_AXIS]; //behave as if the move really took place, but ignore E part
       SERIAL_ECHO_START;
       SERIAL_ECHOLNPGM(MSG_ERR_COLD_EXTRUDE_STOP);
     }
-    
-    #ifdef PREVENT_LENGTHY_EXTRUDE
+    #endif
+    #ifdef EXTRUDE_MAXLENGTH
     if(labs(target[E_AXIS]-position[E_AXIS])>axis_steps_per_unit[E_AXIS]*EXTRUDE_MAXLENGTH)
     {
       position[E_AXIS]=target[E_AXIS]; //behave as if the move really took place, but ignore E part
@@ -660,20 +670,10 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   //enable active axes
   if(block->steps_x != 0) {
-    #ifndef DUAL_X_DRIVE
     enable_x();
-    #else  // DUAL_X_DRIVE
-    enable_x0();
-    enable_x1();
-    #endif // DUAL_X_DRIVE
   }
   if(block->steps_y != 0) {
-    #ifndef DUAL_Y_DRIVE
     enable_y();
-    #else  // DUAL_Y_DRIVE
-    enable_y0();
-    enable_y1();
-    #endif // DUAL_Y_DRIVE
   }
 #ifndef Z_LATE_ENABLE
   if(block->steps_z != 0) enable_z();
@@ -837,9 +837,11 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   block->acceleration = block->acceleration_st / steps_per_mm;
   block->acceleration_rate = (long)((float)block->acceleration_st * 8.388608);
 
+
   // For E-only moves use the user defined max for E axis otherwise use XY max
+  float safe_speed;
   if(block->steps_x <= dropsegments && block->steps_y <= dropsegments && block->steps_z <= dropsegments) {
-     block->entry_speed = block->max_entry_speed = min(max_e_jerk[extruder], block->nominal_speed);
+     block->entry_speed = block->max_entry_speed = safe_speed = min(max_e_jerk[extruder], block->nominal_speed);
   }
   else
   {
@@ -848,8 +850,8 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     float vmax_junction_factor = 1.0; 
     if(fabs(current_speed[Z_AXIS]) > max_z_jerk/2) 
       vmax_junction = min(vmax_junction, max_z_jerk/2);
-    if(fabs(current_speed[E_AXIS]) > max_e_jerk/2) 
-      vmax_junction = min(vmax_junction, max_e_jerk/2);
+    if(fabs(current_speed[E_AXIS]) > max_e_jerk[extruder]/2) 
+      vmax_junction = min(vmax_junction, max_e_jerk[extruder]/2);
     vmax_junction = min(vmax_junction, block->nominal_speed);
     float safe_speed = vmax_junction;
 
@@ -862,8 +864,8 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
       if(fabs(current_speed[Z_AXIS] - previous_speed[Z_AXIS]) > max_z_jerk) {
         vmax_junction_factor= min(vmax_junction_factor, (max_z_jerk/fabs(current_speed[Z_AXIS] - previous_speed[Z_AXIS])));
       } 
-      if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) > max_e_jerk) {
-        vmax_junction_factor = min(vmax_junction_factor, (max_e_jerk/fabs(current_speed[E_AXIS] - previous_speed[E_AXIS])));
+      if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) > max_e_jerk[extruder]) {
+        vmax_junction_factor = min(vmax_junction_factor, (max_e_jerk[extruder]/fabs(current_speed[E_AXIS] - previous_speed[E_AXIS])));
       } 
       vmax_junction = min(previous_nominal_speed, vmax_junction * vmax_junction_factor); // Limit speed to max previous speed
     }

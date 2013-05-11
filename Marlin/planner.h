@@ -88,7 +88,6 @@ extern float retract_acceleration[EXTRUDERS]; // mm/s^2, per extruder filament p
 extern float max_e_jerk[EXTRUDERS]; // mm/s - initial speed for extruder retract moves
 extern float max_xy_jerk; //speed than can be stopped at once, if i understand correctly.
 extern float max_z_jerk;
-extern float max_e_jerk;
 extern float mintravelfeedrate;
 
 #ifdef AUTOTEMP

@@ -310,16 +310,18 @@ FORCE_INLINE void trapezoid_generator_reset(uint8_t current_e) {
   acceleration_time = calc_timer(acc_step_rate);
   OCR1A = acceleration_time;
   
-#if defined(C_COMPENSATION) && defined(C_COMPENSATION_DEBUG)
-  SERIAL_ECHO_START;
-  SERIAL_ECHOPGM("old_advance:");
-  SERIAL_ECHO(old_advance);
-  SERIAL_ECHOPGM(" initial_advance:");
-  SERIAL_ECHO(initial_advance);
-  SERIAL_ECHOPGM(" target_advance:");
-  SERIAL_ECHO(target_advance);
-  SERIAL_ECHOPGM(" final_advance:");
-  SERIAL_ECHOLN(final_advance);
+#if defined(C_COMPENSATION) && defined(ENABLE_DEBUG)
+  if((debug_flags & C_COMPENSATION_DEBUG) != 0) {
+    SERIAL_ECHO_START;
+    SERIAL_ECHOPGM("old_advance:");
+    SERIAL_ECHO(old_advance);
+    SERIAL_ECHOPGM(" initial_advance:");
+    SERIAL_ECHO(initial_advance);
+    SERIAL_ECHOPGM(" target_advance:");
+    SERIAL_ECHO(target_advance);
+    SERIAL_ECHOPGM(" final_advance:");
+    SERIAL_ECHOLN(final_advance);
+  }
 #endif // defined(C_COMPENSATION) && defined(C_COMPENSATION_DEBUG)
 }
 
@@ -333,8 +335,8 @@ FORCE_INLINE void set_directions(uint8_t current_e)
       #if !defined(DUAL_X_DRIVE) || EXTRUDERS==1
         WRITE(X_DIR_PIN, INVERT_X_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, INVERT_X_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, INVERT_X_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, INVERT_X0_DIR); }
+        if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, INVERT_X1_DIR); }
       #endif
     #endif
     count_direction[X_AXIS]=-1;
@@ -344,8 +346,8 @@ FORCE_INLINE void set_directions(uint8_t current_e)
       #if !defined(DUAL_X_DRIVE) || EXTRUDERS==1
         WRITE(X_DIR_PIN, INVERT_X_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, !INVERT_X_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, !INVERT_X_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, !INVERT_X0_DIR); }
+        if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, !INVERT_X1_DIR); }
       #endif
     #endif
     count_direction[X_AXIS]=1;
@@ -354,10 +356,10 @@ FORCE_INLINE void set_directions(uint8_t current_e)
   if ((out_bits & (1<<Y_AXIS)) != 0) {   // -direction
     #if !defined COREXY  //NOT COREXY
       #if !defined(DUAL_Y_DRIVE) || EXTRUDERS==1
-        WRITE(Y_DIR_PIN, INVERT_X_DIR);
+        WRITE(Y_DIR_PIN, INVERT_Y_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(Y0_DIR_PIN, INVERT_Y_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(Y1_DIR_PIN, INVERT_Y_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) { WRITE(Y0_DIR_PIN, INVERT_Y0_DIR); }
+        if(current_e==1 || (follow_me & 2)!=0) { WRITE(Y1_DIR_PIN, INVERT_Y1_DIR); }
       #endif
     #endif
     count_direction[Y_AXIS]=-1;
@@ -365,10 +367,10 @@ FORCE_INLINE void set_directions(uint8_t current_e)
   else { // +direction
     #if !defined COREXY  //NOT COREXY
       #if !defined(DUAL_Y_DRIVE) || EXTRUDERS==1
-        WRITE(Y_DIR_PIN, !INVERT_X_DIR);
+        WRITE(Y_DIR_PIN, !INVERT_Y_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(Y0_DIR_PIN, !INVERT_Y_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(Y1_DIR_PIN, !INVERT_Y_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) { WRITE(Y0_DIR_PIN, !INVERT_Y0_DIR); }
+        if(current_e==1 || (follow_me & 2)!=0) { WRITE(Y1_DIR_PIN, !INVERT_Y1_DIR); }
       #endif
     #endif
     count_direction[Y_AXIS]=1;
@@ -580,7 +582,7 @@ ISR(TIMER1_COMPA_vect)
         #endif
         counter_x -= current_block->step_event_count;
         count_position[X_AXIS]+=count_direction[X_AXIS];   
-        #if !defined(DUAL_Y_DRIVE) || EXTRUDERS==1
+        #if !defined(DUAL_X_DRIVE) || EXTRUDERS==1
         WRITE(X_STEP_PIN, INVERT_X_STEP_PIN);
         #else
         WRITE(X0_STEP_PIN, INVERT_X_STEP_PIN);
@@ -826,16 +828,20 @@ ISR(TIMER0_COMPA_vect)
     }
     #endif
   }
-  if(e_steps[0] != 0 
-    #if EXTRUDERS > 1
-    || e_steps[1] != 0 
-    #endif
-    #if EXTRUDERS > 2
-    || e_steps[2] != 0 
-    #endif
+  #ifdef ENABLE_DEBUG
+  if((debug_flags & C_COMPENSATION_DEBUG) != 0 && 
+     e_steps[0] != 0 
+     #if EXTRUDERS > 1
+     || e_steps[1] != 0 
+     #endif
+     #if EXTRUDERS > 2
+     || e_steps[2] != 0 
+     #endif
     ) {
-    accelerate = true;
+    extern bool insufficient_e_step_rate;
+    insufficient_e_step_rate = true;
   }
+  #endif // ENABLE_DEBUG
 }
 #endif // C_COMPENSATION
 
@@ -845,19 +851,33 @@ void st_init()
   microstep_init(); //Initialize Microstepping Pins
   
   //Initialize Dir Pins
-  #if X_DIR_PIN > -1
+  #if defined(X_DIR_PIN) && X_DIR_PIN > -1
     SET_OUTPUT(X_DIR_PIN);
   #endif
-  #if Y_DIR_PIN > -1 
+  #if defined(X0_DIR_PIN) && X0_DIR_PIN > -1
+    SET_OUTPUT(X0_DIR_PIN);
+  #endif
+  #if defined(X1_DIR_PIN) && X1_DIR_PIN > -1
+    SET_OUTPUT(X1_DIR_PIN);
+  #endif
+
+  #if defined(Y_DIR_PIN) && Y_DIR_PIN > -1 
     SET_OUTPUT(Y_DIR_PIN);
   #endif
+  #if defined(Y0_DIR_PIN) && Y0_DIR_PIN > -1 
+    SET_OUTPUT(Y0_DIR_PIN);
+  #endif
+  #if defined(Y1_DIR_PIN) && Y1_DIR_PIN > -1 
+    SET_OUTPUT(Y1_DIR_PIN);
+  #endif
+
   #if Z_DIR_PIN > -1 
     SET_OUTPUT(Z_DIR_PIN);
-
     #if defined(Z_DUAL_STEPPER_DRIVERS) && (Z2_DIR_PIN > -1)
       SET_OUTPUT(Z2_DIR_PIN);
     #endif
   #endif
+
   #if E0_DIR_PIN > -1 
     SET_OUTPUT(E0_DIR_PIN);
   #endif
@@ -870,14 +890,32 @@ void st_init()
 
   //Initialize Enable Pins - steppers default to disabled.
 
-  #if (X_ENABLE_PIN > -1)
+  #if defined(X_ENABLE_PIN) && (X_ENABLE_PIN > -1)
     SET_OUTPUT(X_ENABLE_PIN);
     if(!X_ENABLE_ON) WRITE(X_ENABLE_PIN,HIGH);
   #endif
-  #if (Y_ENABLE_PIN > -1)
+  #if defined(X0_ENABLE_PIN) && (X0_ENABLE_PIN > -1)
+    SET_OUTPUT(X0_ENABLE_PIN);
+    if(!X_ENABLE_ON) WRITE(X0_ENABLE_PIN,HIGH);
+  #endif
+  #if defined(X1_ENABLE_PIN) && (X1_ENABLE_PIN > -1)
+    SET_OUTPUT(X1_ENABLE_PIN);
+    if(!X_ENABLE_ON) WRITE(X1_ENABLE_PIN,HIGH);
+  #endif
+
+  #if defined(Y_ENABLE_PIN) && (Y_ENABLE_PIN > -1)
     SET_OUTPUT(Y_ENABLE_PIN);
     if(!Y_ENABLE_ON) WRITE(Y_ENABLE_PIN,HIGH);
   #endif
+  #if defined(Y0_ENABLE_PIN) && (Y0_ENABLE_PIN > -1)
+    SET_OUTPUT(Y0_ENABLE_PIN);
+    if(!Y_ENABLE_ON) WRITE(Y0_ENABLE_PIN,HIGH);
+  #endif
+  #if defined(Y1_ENABLE_PIN) && (Y1_ENABLE_PIN > -1)
+    SET_OUTPUT(Y1_ENABLE_PIN);
+    if(!Y_ENABLE_ON) WRITE(Y1_ENABLE_PIN,HIGH);
+  #endif
+
   #if (Z_ENABLE_PIN > -1)
     SET_OUTPUT(Z_ENABLE_PIN);
     if(!Z_ENABLE_ON) WRITE(Z_ENABLE_PIN,HIGH);
@@ -887,6 +925,7 @@ void st_init()
       if(!Z_ENABLE_ON) WRITE(Z2_ENABLE_PIN,HIGH);
     #endif
   #endif
+
   #if (E0_ENABLE_PIN > -1)
     SET_OUTPUT(E0_ENABLE_PIN);
     if(!E_ENABLE_ON) WRITE(E0_ENABLE_PIN,HIGH);
@@ -943,19 +982,40 @@ void st_init()
       WRITE(Z_MAX_PIN,HIGH);
     #endif
   #endif
- 
 
   //Initialize Step Pins
-  #if (X_STEP_PIN > -1) 
+  #if defined(X_STEP_PIN) && (X_STEP_PIN > -1) 
     SET_OUTPUT(X_STEP_PIN);
     WRITE(X_STEP_PIN,INVERT_X_STEP_PIN);
     disable_x();
-  #endif  
-  #if (Y_STEP_PIN > -1) 
+  #endif
+  #if defined(X0_STEP_PIN) && (X0_STEP_PIN > -1) 
+    SET_OUTPUT(X0_STEP_PIN);
+    WRITE(X0_STEP_PIN,INVERT_X_STEP_PIN);
+    disable_x0();
+  #endif
+  #if defined(X1_STEP_PIN) && (X1_STEP_PIN > -1) 
+    SET_OUTPUT(X1_STEP_PIN);
+    WRITE(X1_STEP_PIN,INVERT_X_STEP_PIN);
+    disable_x1();
+  #endif
+
+  #if defined(Y_STEP_PIN) && (Y_STEP_PIN > -1) 
     SET_OUTPUT(Y_STEP_PIN);
     WRITE(Y_STEP_PIN,INVERT_Y_STEP_PIN);
     disable_y();
-  #endif  
+  #endif
+  #if defined(Y0_STEP_PIN) && (Y0_STEP_PIN > -1) 
+    SET_OUTPUT(Y0_STEP_PIN);
+    WRITE(Y0_STEP_PIN,INVERT_Y_STEP_PIN);
+    disable_y0();
+  #endif
+  #if defined(Y1_STEP_PIN) && (Y1_STEP_PIN > -1) 
+    SET_OUTPUT(Y1_STEP_PIN);
+    WRITE(Y1_STEP_PIN,INVERT_Y_STEP_PIN);
+    disable_y1();
+  #endif
+
   #if (Z_STEP_PIN > -1) 
     SET_OUTPUT(Z_STEP_PIN);
     WRITE(Z_STEP_PIN,INVERT_Z_STEP_PIN);
@@ -964,7 +1024,8 @@ void st_init()
       WRITE(Z2_STEP_PIN,INVERT_Z_STEP_PIN);
     #endif
     disable_z();
-  #endif  
+  #endif
+  
   #if (E0_STEP_PIN > -1) 
     SET_OUTPUT(E0_STEP_PIN);
     WRITE(E0_STEP_PIN,INVERT_E_STEP_PIN);
@@ -1072,18 +1133,8 @@ long st_get_position(uint8_t axis)
 void finishAndDisableSteppers()
 {
   st_synchronize(); 
-  #ifndef DUAL_X_DRIVE
   disable_x();
-  #else  // DUAL_X_DRIVE
-  disable_x0();
-  disable_x1();
-  #endif // DUAL_X_DRIVE
-  #ifndef DUAL_Y_DRIVE
   disable_y(); 
-  #else  // DUAL_Y_DRIVE
-  disable_y0();
-  disable_y1();
-  #endif // DUAL_Y_DRIVE
   disable_z(); 
   disable_e0(); 
   disable_e1(); 
