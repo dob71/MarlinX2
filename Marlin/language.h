@@ -189,6 +189,8 @@
 	#define MSG_RESTORING_POS "Restoring position"
 	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
 	#define MSG_CCOMP_TABLE "Compensation table:"
+	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
+	#define MSG_TEMPERATURE_TGT "Target temperature "
 
 #endif
 
@@ -349,6 +351,8 @@
 	#define MSG_RESTORING_POS "Restoring position"
 	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
 	#define MSG_CCOMP_TABLE "Compensation table:"
+	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
+	#define MSG_TEMPERATURE_TGT "Target temperature "
 
 #endif
 
@@ -513,7 +517,9 @@
 #define MSG_RESTORING_POS "Restoring position"
 #define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
 #define MSG_CCOMP_TABLE "Compensation table:"
-	
+#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
+#define MSG_TEMPERATURE_TGT "Target temperature "
+
 #endif
 
 
@@ -675,6 +681,8 @@
 	#define MSG_RESTORING_POS "Restoring position"
 	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
 	#define MSG_CCOMP_TABLE "Compensation table:"
+	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
+	#define MSG_TEMPERATURE_TGT "Target temperature "
 
 #endif
 
@@ -836,6 +844,8 @@
 #define MSG_RESTORING_POS "Restoring position"
 #define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
 #define MSG_CCOMP_TABLE "Compensation table:"
+#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
+#define MSG_TEMPERATURE_TGT "Target temperature "
 
 #endif
 
@@ -990,6 +1000,8 @@
 #define MSG_RESTORING_POS              "Restoring position"
 #define MSG_CCOMP_INVALID_POS          "Invalid compensation table row index:"
 #define MSG_CCOMP_TABLE                "Compensation table:"
+#define MSG_TEMP_ADJ_ERROR             "Temperature already adjusted, restore first"
+#define MSG_TEMPERATURE_TGT            "Target temperature "
 
 #endif
 
@@ -1150,6 +1162,8 @@
 	#define MSG_RESTORING_POS        "Restoring position"
 	#define MSG_CCOMP_INVALID_POS    "Invalid compensation table row index:"
 	#define MSG_CCOMP_TABLE          "Compensation table:"
+	#define MSG_TEMP_ADJ_ERROR       "Temperature already adjusted, restore first"
+	#define MSG_TEMPERATURE_TGT      "Target temperature "
 
 #endif
 
@@ -1316,6 +1330,8 @@
 	#define MSG_RESTORING_POS "Restoring position"
 	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
 	#define MSG_CCOMP_TABLE "Compensation table:"
+	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
+	#define MSG_TEMPERATURE_TGT "Target temperature "
 
 #endif
 
@@ -1470,6 +1486,15 @@
 	#define MSG_ENDSTOPS_HIT "paatyrajat aktivoitu: "
 	#define MSG_ERR_COLD_EXTRUDE_STOP " kylmana pursotus estetty"
 	#define MSG_ERR_LONG_EXTRUDE_STOP " liian pitka pursotus estetty"
+
+	#define MSG_DBG_FLAG "Debug flag:"
+	#define MSG_FOLLOWME_MODE "Follw-me mode status:"
+	#define MSG_SAVED_POS "Saved position"
+	#define MSG_RESTORING_POS "Restoring position"
+	#define MSG_CCOMP_INVALID_POS "Invalid compensation table row index:"
+	#define MSG_CCOMP_TABLE "Compensation table:"
+	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
+	#define MSG_TEMPERATURE_TGT "Target temperature "
 
 #endif
 #endif // ifndef LANGUAGE_H

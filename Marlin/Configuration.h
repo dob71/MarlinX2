@@ -17,8 +17,8 @@
 #define SERIAL_PORT 0
 
 // This determines the communication speed of the printer
-#define BAUDRATE 250000
-//#define BAUDRATE 115200
+//#define BAUDRATE 250000
+#define BAUDRATE 115200
 
 //// The following define selects which electronics board you have. Please choose the one that matches your setup
 // 10 = Gen7 custom (Alfons3 Version) "https://github.com/Alfons3/Generation_7_Electronics"
@@ -56,7 +56,7 @@
 #define POWER_SUPPLY 1
 
 // This defines the number of extruders
-#define EXTRUDERS 2
+#define EXTRUDERS 1
 
 //===========================================================================
 //=============================Thermal Settings  ============================
@@ -86,7 +86,7 @@
 // 55 is 100k thermistor - ATC Semitec 104GT-2 (Used in ParCan) (1k pullup)
 
 #define TEMP_SENSOR_0 1
-#define TEMP_SENSOR_1 1
+#define TEMP_SENSOR_1 0
 #define TEMP_SENSOR_2 0
 #define TEMP_SENSOR_BED 1
 
@@ -176,13 +176,7 @@
     #define  DEFAULT_Ki (1.2*Kp/PID_SWING_AT_CRITIAL*PID_dT)
     #define  DEFAULT_Kd (0)
   #endif
-  
-  // this adds an experimental additional term to the heatingpower, proportional to the extrusion speed.
-  // if Kc is choosen well, the additional required power due to increased melting should be compensated.
-  #define PID_ADD_EXTRUSION_RATE  
-  #ifdef PID_ADD_EXTRUSION_RATE
-    #define  DEFAULT_Kc (1) //heatingpower=Kc*(e_speed)
-  #endif
+
 #else // PIDTEMP
   // limits current to nozzle; 255=full current (used even if PID is Off)
   #define PID_MAX 255
@@ -263,7 +257,7 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 // If the machine can independently move the second extruder on the X or Y axis
 // uncomment the appropriate define and uncomment/use paramters with X0/X1/Y0/Y1 
 // instead of X/Y in their name (those are dual drive specific).
-#define DUAL_X_DRIVE
+//#define DUAL_X_DRIVE
 //#define DUAL_Y_DRIVE
 
 // For Inverting Stepper Enable Pins (Active Low) use 0, Non Inverting (Active High) use 1
@@ -280,9 +274,9 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 
 // Changes the direction of the movement on an axis.
 // For dual drive on an axis use numbered variations of the define and comment out the unnumberd.
-//#define INVERT_X_DIR true    // X axis motor direction, for Mendel set to false, for Orca set to true
-#define INVERT_X0_DIR true   // X axis first motor direction, for Mendel set to false, for Orca set to true
-#define INVERT_X1_DIR false  // X axis second motor direction
+#define INVERT_X_DIR true    // X axis motor direction, for Mendel set to false, for Orca set to true
+//#define INVERT_X0_DIR true   // X axis first motor direction, for Mendel set to false, for Orca set to true
+//#define INVERT_X1_DIR false  // X axis second motor direction
 #define INVERT_Y_DIR false   // Y axis motor direction, for Mendel set to true, for Orca set to false
 //#define INVERT_Y0_DIR false  // Y first motor direction, for Mendel set to true, for Orca set to false
 //#define INVERT_Y1_DIR true   // Y second motor direction
@@ -294,9 +288,9 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 // ENDSTOP SETTINGS:
 // Sets direction of endstops when homing; 1=MAX, -1=MIN
 // For dual drive on an axis use numbered variations of the define and comment out the unnumberd.
-//#define X_HOME_DIR  -1  // X axis homing direction
-#define X0_HOME_DIR -1  // first motor X axis homing direction
-#define X1_HOME_DIR  1  // second motor X axis homing direction
+#define X_HOME_DIR  -1  // X axis homing direction
+//#define X0_HOME_DIR -1  // first motor X axis homing direction
+//#define X1_HOME_DIR  1  // second motor X axis homing direction
 #define Y_HOME_DIR -1   // Y axis homing direction
 //#define Y0_HOME_DIR -1  // first motor Y axis homing direction
 //#define Y1_HOME_DIR  1  // second motor Y axis homing direction
@@ -307,12 +301,12 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 
 // Travel limits after homing (use defines for dual drives if enabled for axes)
 // For dual drive on an axis use numbered variations of the define and comment out the unnumbered.
-//#define X_MAX_POS 250
-#define X0_MAX_POS 250
-#define X1_MAX_POS 295
-//#define X_MIN_POS 0
-#define X0_MIN_POS 0
-#define X1_MIN_POS 45
+#define X_MAX_POS 250
+//#define X0_MAX_POS 250
+//#define X1_MAX_POS 295
+#define X_MIN_POS 0
+//#define X0_MIN_POS 0
+//#define X1_MIN_POS 45
 #define Y_MAX_POS 200
 //#define Y0_MAX_POS 200
 //#define Y1_MAX_POS 200
@@ -323,8 +317,8 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 #define Z_MIN_POS 0
 
 // What's the max move distance along an axis? For dual drievs use the greatest.
-// #define X_MAX_LENGTH (X_MAX_POS - X_MIN_POS) 
-#define X_MAX_LENGTH (X1_MAX_POS - X0_MIN_POS) 
+#define X_MAX_LENGTH (X_MAX_POS - X_MIN_POS) 
+// #define X_MAX_LENGTH (X1_MAX_POS - X0_MIN_POS) 
 // #define X_MAX_LENGTH (X0_MAX_POS - X1_MIN_POS) 
 #define Y_MAX_LENGTH (Y_MAX_POS - Y_MIN_POS)
 // #define Y_MAX_LENGTH (Y1_MAX_POS - Y0_MIN_POS)
@@ -360,19 +354,19 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 // Note: the extruder offset for multiple extruder machines with dual drive on an axis should be set to 0 
 //       for that axis. On that axis the positioning is controlled by the the coordinates of the homing 
 //       switches (i.e. *_MAX_POS/*_MIN_POS or MANUAL_*_HOME_POS if MANUAL_HOME_POSITIONS if defined).
-#define EXTRUDER_OFFSET_X {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the X axis
-#define EXTRUDER_OFFSET_Y {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the Y axis
+//#define EXTRUDER_OFFSET_X {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the X axis
+//#define EXTRUDER_OFFSET_Y {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the Y axis
 
 // default settings 
-#define DEFAULT_AXIS_STEPS_PER_UNIT   {80.3232, 80.8900, 2284.7651, 757.2218, 737.5537} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
-#define DEFAULT_MAX_FEEDRATE          {500, 500, 7, 45, 45} // X,Y,Z,E0...(mm/sec)    
-#define DEFAULT_MAX_ACCELERATION      {9000,9000,100,9000,9000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
-#define DEFAULT_RETRACT_ACCELERATION  {90000,90000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
-#define DEFAULT_ACCELERATION          3000   // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
+#define DEFAULT_AXIS_STEPS_PER_UNIT   {80.3232, 80.8900, 2284.7651, 757.2218} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
+#define DEFAULT_MAX_FEEDRATE          {500, 500, 7, 45} // X,Y,Z,E0...(mm/sec)    
+#define DEFAULT_MAX_ACCELERATION      {9000,9000,100,9000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
+#define DEFAULT_RETRACT_ACCELERATION  {90000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
+#define DEFAULT_ACCELERATION          3000    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
 
-#define DEFAULT_XYJERK                20.0    // (mm/sec)
+#define DEFAULT_XYJERK                10.0    // (mm/sec)
 #define DEFAULT_ZJERK                 0.4     // (mm/sec)
-#define DEFAULT_EJERK                 {19,19} // E0... (mm/sec) per extruder, max initial speed for retract moves
+#define DEFAULT_EJERK                 {19}    // E0... (mm/sec) per extruder, max initial speed for retract moves
 
 //===========================================================================
 //=============================Additional Features===========================
@@ -434,15 +428,39 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
   #endif
 #endif
 
+// Enable filament compression (bowden drive) compensation. If enabled the 
+// firmware compensates for a few more mm of the filament compressed in the 
+// guiding tube when extruding at high speed vs low. The amount of the 
+// compensation is likely to depend on the plastic type and the nozzle 
+// temperature. The M340 command can be used to change the default compensation
+// table in G-code startup script for specific printing profiles.
+// M340 - Set filament compression (bowden drive) compensation table paramters. 
+//        P<0-N> - table entry position, S<speed> - E speed in mm/sec, 
+//        C<compensation> - length (in mm) of the filament compressed 
+//        in the guiding tube when extruding at the given speed. 
+//        The table entries should be ordered by E speed value. 
+// The number of entries in this define determines the size of the table.
+// The compensation for speed 0mm/s is always 0mm and should not be listed.
+// For speeds higher than listed the compensation for the last entry is used.
+// Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
+//#define C_COMPENSATION  {{0.5, 1.0}}, \
+//                        {{1.5, 2.5}}, \
+//                        {{2.5, 4.0}}, \
+//                        {{5.0, 5.0}}
+// Compensation reuses old advance feature code for driving the extruders.
+// That code accumulates the number of E-steps to be made and periodically 
+// processes them. The following value controls how often (10-250).
+// 50 -> 5kHz  (250000 / 50 = 5000Hz)
+// 25 -> 10kHz (250000 / 25 = 10000Hz)
+#define C_COMPENSATION_E_RATE 50
+
 // Uncomment the below define if the machine has individually controlled 
 // hotend fans. The pins for those fans have to be defined by 
 // FAN0_PIN (extruder 0 fan), FAN1_PIN (extruder 1 fan), ...
 // Note: FAN_SOFT_PWM is not supported with PER_EXTRUDER_FANS
 // If the fan is shared between hotends, then the fan speed for currently 
 // active hotend is used.
-#define PER_EXTRUDER_FANS
-
-// If you have extruder/hotend 
+//#define PER_EXTRUDER_FANS
 
 // Increase the FAN pwm frequency. Removes the PWM noise but increases heating in the FET/Arduino
 //#define FAST_PWM_FAN

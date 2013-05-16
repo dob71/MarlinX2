@@ -517,13 +517,13 @@ void check_axes_activity()
 #ifndef FAN_SOFT_PWM
   for(uint8_t e = 0; e < EXTRUDERS; e++) 
   {
-    #ifdef PER_EXTRUDER_FANS
+    #if defined(PER_EXTRUDER_FANS) && EXTRUDERS > 1
     // Use fan speed of the active extruder for the followers
     if(follow_me_fan && (follow_me & (1<<e)) != 0) {
-       tail_fan_speed[e] = block->fan_speed;
+       tail_fan_speed[e] = tail_fan_speed[ACTIVE_EXTRUDER];
        fanSpeed[e] = fanSpeed[ACTIVE_EXTRUDER];
     }
-    #endif // PER_EXTRUDER_FANS
+    #endif // PER_EXTRUDER_FANS && EXTRUDERS > 1
     #ifdef FAN_KICKSTART_TIME
     static unsigned long fan_kick_end[EXTRUDERS];
     static uint8_t fan_prev_speed[EXTRUDERS];

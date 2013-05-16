@@ -417,8 +417,10 @@ FORCE_INLINE void set_directions(uint8_t current_e)
     #endif
     #if EXTRUDERS > 1
     if(current_e==1 || (follow_me & 2)!=0) { WRITE(E1_DIR_PIN, INVERT_E2_DIR); }
-    #endif
     if(current_e==0 || (follow_me & 1)!=0) { WRITE(E0_DIR_PIN, INVERT_E2_DIR); }
+    #else  // EXTRUDERS > 1
+    WRITE(E0_DIR_PIN, INVERT_E2_DIR);
+    #endif // EXTRUDERS > 1
     count_direction[E_AXIS]=-1;
   }
   else { // +direction
@@ -427,8 +429,10 @@ FORCE_INLINE void set_directions(uint8_t current_e)
     #endif
     #if EXTRUDERS > 1
     if(current_e==1 || (follow_me & 2)!=0) { WRITE(E1_DIR_PIN, !INVERT_E2_DIR); }
-    #endif
     if(current_e==0 || (follow_me & 1)!=0) { WRITE(E0_DIR_PIN, !INVERT_E2_DIR); }
+    #else  // EXTRUDERS > 1
+    WRITE(E0_DIR_PIN, !INVERT_E2_DIR);
+    #endif // EXTRUDERS > 1
     count_direction[E_AXIS]=1;
   }
   #endif //!C_COMPENSATION
@@ -679,15 +683,23 @@ ISR(TIMER1_COMPA_vect)
       #ifdef C_COMPENSATION
       counter_e -= current_block->step_event_count;
       if ((out_bits & (1<<E_AXIS)) != 0) { // - direction
+        #if EXTRUDERS > 1
         if(current_e==2 || (follow_me & 4)!=0) e_steps[2]--;
         if(current_e==1 || (follow_me & 2)!=0) e_steps[1]--;
         if(current_e==0 || (follow_me & 1)!=0) e_steps[0]--;
+        #else  // EXTRUDERS > 1
+        e_steps[0]--;
+        #endif // EXTRUDERS > 1
         count_position[E_AXIS]--;
       }
       else {
+        #if EXTRUDERS > 1
         if(current_e==2 || (follow_me & 4)!=0) e_steps[2]++;
         if(current_e==1 || (follow_me & 2)!=0) e_steps[1]++;
         if(current_e==0 || (follow_me & 1)!=0) e_steps[0]++;
+        #else  // EXTRUDERS > 1
+        e_steps[0]++;
+        #endif // EXTRUDERS > 1
         count_position[E_AXIS]++;
       }
       #else // C_COMPENSATION
@@ -696,8 +708,10 @@ ISR(TIMER1_COMPA_vect)
       #endif
       #if EXTRUDERS > 1
       if(current_e==1 || (follow_me & 2)!=0) { WRITE(E1_STEP_PIN, !INVERT_E_STEP_PIN); }
-      #endif
       if(current_e==0 || (follow_me & 1)!=0) { WRITE(E0_STEP_PIN, !INVERT_E_STEP_PIN); }
+      #else  // EXTRUDERS > 1
+      WRITE(E0_STEP_PIN, !INVERT_E_STEP_PIN);
+      #endif // EXTRUDERS > 1
       counter_e -= current_block->step_event_count;
       count_position[E_AXIS]+=count_direction[E_AXIS];
       #if EXTRUDERS > 2

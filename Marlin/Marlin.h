@@ -73,12 +73,6 @@ extern const char echomagic[];
 #define SERIAL_ECHOLNPGM(x) SERIAL_PROTOCOLLNPGM(x)
 #define SERIAL_ECHOPAIR(name,value) (serial_echopair_P(PSTR(name),(value)))
 
-void serial_echopair_P(const char *s_P, float v);
-void serial_echopair_P(const char *s_P, double v);
-void serial_echopair_P(const char *s_P, unsigned long v);
-void serial_echopair_P(const char *s_P, int v);
-void serial_echopair_P(const char *s_P, const char *v);
-
 // Macro for getting current active extruder
 #define ACTIVE_EXTRUDER ((int)active_extruder)
 
@@ -92,6 +86,9 @@ FORCE_INLINE void serialprintPGM(const char *str)
     ch=pgm_read_byte(++str);
   }
 }
+
+template <typename T> void serial_echopair_P(const char *s_P, T v)
+    { serialprintPGM(s_P); SERIAL_ECHO(v); }
 
 void get_command();
 void process_commands();

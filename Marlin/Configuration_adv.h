@@ -70,32 +70,6 @@
 // (Does not work with software PWM for fan on Sanguinololu)
 #define FAN_KICKSTART_TIME 1000
 
-// Enable filament compression (bowden drive) compensation. If enabled the 
-// firmware compensates for a few more mm of the filament compressed in the 
-// guiding tube when extruding at high speed vs low. The amount of the 
-// compensation is likely to depend on the plastic type and the nozzle 
-// temperature. The M340 command can be used to change the default compensation
-// table in G-code startup script for specific printing profiles.
-// M340 - Set filament compression (bowden drive) compensation table paramters. 
-//        P<0-N> - table entry position, S<speed> - E speed in mm/sec, 
-//        C<compensation> - length (in mm) of the filament compressed 
-//        in the guiding tube when extruding at the given speed. 
-//        The table entries should be ordered by E speed value. 
-// The number of entries in this define determines the size of the table.
-// The compensation for speed 0mm/s is always 0mm and should not be listed.
-// For speeds higher than listed the compensation for the last entry is used.
-// Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
-#define C_COMPENSATION  {{0.5, 1.0},{0.5, 1.0}}, \
-                        {{1.5, 2.5},{1.5, 2.5}}, \
-                        {{2.5, 4.0},{2.5, 4.0}}, \
-                        {{5.0, 5.0},{5.0, 5.0}}
-// Compensation reuses old advance feature code for driving the extruders.
-// That code accumulates the number of E-steps to be made and periodically 
-// processes them. The following value controls how often (10-250).
-// 50 -> 5kHz  (250000 / 50 = 5000Hz)
-// 25 -> 10kHz (250000 / 25 = 10000Hz)
-#define C_COMPENSATION_E_RATE 50
-
 //===========================================================================
 //=============================Mechanical Settings===========================
 //===========================================================================
@@ -270,7 +244,7 @@ const unsigned int dropsegments = 5;
 // If you are using a RAMPS board or cheap E-bay purchased boards that do not detect when an SD card is inserted
 // You can get round this by connecting a push button or single throw switch to the pin defined as SDCARDCARDDETECT 
 // in the pins.h file.  When using a push button pulling the pin to ground this will need inverted.  This setting should
-// be commented out otherwise
+// be commented out otherwise. 
 //#define SDCARDDETECTINVERTED 
 //#ifdef ULTIPANEL
 // #undef SDCARDDETECTINVERTED
@@ -308,7 +282,7 @@ const unsigned int dropsegments = 5;
 #endif
 
 
-// The ASCII buffer for recieving from the serial:
+// The ASCII buffer for receiving from the serial:
 #define MAX_CMD_SIZE 96
 #define BUFSIZE 4
 
@@ -424,6 +398,9 @@ const unsigned int dropsegments = 5;
 #ifdef PER_EXTRUDER_FANS
   #ifdef FAN_SOFT_PWM
   #  error The FAN_SOFT_PWM feature is not compatible with PER_EXTRUDER_FANS
+  #endif
+  #if !(EXTRUDERS > 1)
+  #  error The FAN_SOFT_PWM feature requires more than 1 extruder
   #endif
   #define FAN_PIN (fan_pin[ACTIVE_EXTRUDER])
 #endif // PER_EXTRUDER_FANS

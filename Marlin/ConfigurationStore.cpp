@@ -68,7 +68,9 @@ void Config_StoreSettings()
     EEPROM_WRITE_VAR(i,z);
   }
   #endif // ENABLE_ADD_HOMEING
+  #if EXTRUDERS > 1
   EEPROM_WRITE_VAR(i,extruder_offset);
+  #endif // EXTRUDERS > 1
   #ifndef ULTIPANEL
   int plaPreheatHotendTemp = PLA_PREHEAT_HOTEND_TEMP;
   int plaPreheatHPBTemp = PLA_PREHEAT_HPB_TEMP;
@@ -182,7 +184,7 @@ void Config_PrintSettings()
     #endif
 
     SERIAL_ECHO_START;
-    SERIAL_ECHOLNPGM("Advanced variables: S=Min feedrate (mm/s), T=Min travel feedrate (mm/s), B=minimum segment time (ms), X=maximum xY jerk (mm/s),  Z=maximum Z jerk (mm/s)");
+    SERIAL_ECHOLNPGM("Advanced variables: S=Min feedrate (mm/s), M=Min travel feedrate (mm/s), B=minimum segment time (us), X=maximum XY jerk (mm/s),  Z=maximum Z jerk (mm/s)");
     SERIAL_ECHO_START;
     SERIAL_ECHOPAIR("  M205 S",minimumfeedrate ); 
     SERIAL_ECHOPAIR(" M" ,mintravelfeedrate ); 
@@ -264,7 +266,9 @@ void Config_RetrieveSettings()
       EEPROM_READ_VAR(i,z);
       EEPROM_READ_VAR(i,z);
       #endif // ENABLE_ADD_HOMEING
+      #if EXTRUDERS > 1
       EEPROM_READ_VAR(i,extruder_offset);
+      #endif // EXTRUDERS > 1
       #ifndef ULTIPANEL
       int plaPreheatHotendTemp;
       int plaPreheatHPBTemp;
@@ -318,8 +322,13 @@ void Config_ResetDefault()
     long  tmp3[] = DEFAULT_MAX_ACCELERATION;
     long  tmp4[] = DEFAULT_RETRACT_ACCELERATION; 
     long  tmp5[] = DEFAULT_EJERK;
+    #if EXTRUDERS > 1
     float tmp6[] = EXTRUDER_OFFSET_X;
     float tmp7[] = EXTRUDER_OFFSET_Y;
+    #else // EXTRUDERS > 1
+    float tmp6[] = { 0.0 };
+    float tmp7[] = { 0.0 };
+    #endif // EXTRUDERS > 1
     
     // Populate missing values for extruders from the last value in arrays
     for (short i = 0; i < (3 + EXTRUDERS); i++) 
@@ -355,6 +364,7 @@ void Config_ResetDefault()
           max_e_jerk[i]=tmp5[i];
         else
           max_e_jerk[i]=tmp5[max_i - 1];
+        #if EXTRUDERS > 1
         max_i = sizeof(tmp6)/sizeof(*tmp6);
         if(i < max_i)
           extruder_offset[X_AXIS][i]=tmp6[i];
@@ -365,6 +375,7 @@ void Config_ResetDefault()
           extruder_offset[Y_AXIS][i]=tmp7[i];
         else
           extruder_offset[Y_AXIS][i]=0;
+        #endif // EXTRUDERS > 1
       }
     }
     acceleration = DEFAULT_ACCELERATION;

@@ -408,6 +408,7 @@
 #  define TEMP_1_PIN       15   // ANALOG NUMBERING
 #else  // EXTRUDERS > 1
 #  define HEATER_1_PIN     -1
+#  define TEMP_1_PIN       -1
 #endif // EXTRUDERS > 1
 #define HEATER_2_PIN       -1
 #define TEMP_2_PIN         -1

@@ -93,7 +93,7 @@ FORCE_INLINE bool isCoolingBed() {
 };
 
 FORCE_INLINE bool isDoneHeatingBed() {
-  return (target_temperature_bed != 0) && 
+  return (target_temperature_bed == 0) || 
          (abs(target_temperature_bed - current_temperature_bed) <= TEMP_WINDOW_BED);
 };
 

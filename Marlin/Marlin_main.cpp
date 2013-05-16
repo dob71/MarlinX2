@@ -226,7 +226,7 @@ float extruder_offset[2][EXTRUDERS] = {
 
 #if EXTRUDERS > 1
   uint8_t follow_me = 0; // Bitmask of the follow me mode state
-  bool follow_me_heater; // Follw the hotend temperature changes
+  bool follow_me_heater; // Follow the hotend temperature changes
   #ifdef PER_EXTRUDER_FANS
   bool follow_me_fan; // Follw the fan speed changes
   #endif // PER_EXTRUDER_FANS
@@ -284,17 +284,6 @@ float saved_position[NUM_AXIS];
 
 void get_arc_coordinates();
 bool setTargetedHotend(int code);
-
-void serial_echopair_P(const char *s_P, float v)
-    { serialprintPGM(s_P); SERIAL_ECHO(v); }
-void serial_echopair_P(const char *s_P, double v)
-    { serialprintPGM(s_P); SERIAL_ECHO(v); }
-void serial_echopair_P(const char *s_P, unsigned long v)
-    { serialprintPGM(s_P); SERIAL_ECHO(v); }
-void serial_echopair_P(const char *s_P, int v)
-    { serialprintPGM(s_P); SERIAL_ECHO(v); }
-void serial_echopair_P(const char *s_P, const char *v)
-    { serialprintPGM(s_P); SERIAL_ECHO(v); }
 
 extern "C"{
   extern unsigned int __bss_end;
@@ -449,6 +438,41 @@ void setup()
   lcd_init();
 }
 
+/* Prints the temperatures state string, the new mode output includes 
+   the extruder number(s) and target temperature(s). The active extruder 
+   always printed first, the 'e' parametr is used for the old mode only. */
+void printHeatersState(bool new_mode, uint8_t e)
+{
+  if(!new_mode) {
+    SERIAL_PROTOCOLPGM("T:");
+    SERIAL_PROTOCOL((int)(degHotend(e) + 0.5));
+  }
+  else {
+    for(int8_t i = -1; i < EXTRUDERS; i++) {
+      e = (i >= 0) ? i : active_extruder;
+      if(i == active_extruder) {
+        continue;
+      }
+      SERIAL_PROTOCOL('T');
+      SERIAL_PROTOCOL((int)e);
+      SERIAL_PROTOCOL(':');
+      SERIAL_PROTOCOL((int)(degHotend(e) + 0.5));
+      SERIAL_PROTOCOL('/');
+      SERIAL_PROTOCOL((int)(degTargetHotend(e) + 0.5));
+      SERIAL_PROTOCOL(' ');
+    }
+  }
+  #if TEMP_BED_PIN > -1
+  SERIAL_PROTOCOLPGM(" B:");
+  SERIAL_PROTOCOL((int)(degBed() + 0.5)); 
+  if(new_mode) {
+    SERIAL_PROTOCOL('/');
+    SERIAL_PROTOCOL((int)(degTargetBed() + 0.5));
+  }
+  #endif // TEMP_BED_PIN > -1
+  SERIAL_PROTOCOL('\n');
+  return;
+}
 
 void loop()
 {
@@ -1167,19 +1191,42 @@ void process_commands()
         temp_adjustment = 0;
       }
       // Allow only one temperature adjustment lower or higher.
-      if (code_seen('L') && temp_adjustment >= 0) {
-        int deg = degTargetHotend(tmp_extruder);
-        deg = (deg > code_value()) ? (deg - code_value()) : 0;
-        setTargetHotend(deg, tmp_extruder);
-        temp_adjustment--;
+      if (code_seen('L')) {
+        if(temp_adjustment >= 0) {
+          int deg = degTargetHotend(tmp_extruder);
+          deg = (deg > code_value()) ? (deg - code_value()) : 0;
+          setTargetHotend(deg, tmp_extruder);
+          temp_adjustment--;
+        } 
+        else if(temp_adjustment < 0)
+        {
+          SERIAL_ECHO_START;
+          SERIAL_ECHOLN(MSG_TEMP_ADJ_ERROR);
+          break;
+        }
       }
-      if (code_seen('H') && temp_adjustment <= 0) {
-        int deg = degTargetHotend(tmp_extruder) + code_value();
-        // if heating over max value should the machine will shut down
-        setTargetHotend(deg, tmp_extruder);
-        temp_adjustment++;
+      if (code_seen('H')) {
+        if (temp_adjustment <= 0) {
+          int deg = degTargetHotend(tmp_extruder) + code_value();
+          // if heating over max value should the machine will shut down
+          setTargetHotend(deg, tmp_extruder);
+          temp_adjustment++;
+        }
+        else if(temp_adjustment > 0)
+        {
+          SERIAL_ECHO_START;
+          SERIAL_ECHOLN(MSG_TEMP_ADJ_ERROR);
+          break;
+        }
       }
+
       setWatch();
+
+      SERIAL_ECHO_START;
+      SERIAL_ECHOPGM(MSG_TEMPERATURE_TGT);
+      SERIAL_ECHOPAIR(" T", (int)tmp_extruder);
+      SERIAL_ECHOPAIR(":", (int)(degTargetHotend(tmp_extruder) + 0.5));
+      SERIAL_ECHOLN("");
       break;
 
     case 140: // M140 set bed temp
@@ -1190,33 +1237,13 @@ void process_commands()
       if(setTargetedHotend(105)){
         break;
       }
-      codenum = 0;
+      codenum = false;
       if(code_seen('A') && code_value() != 0) {
-        codenum = 1;
+        codenum = true;
         tmp_extruder = active_extruder;
       }
-      SERIAL_PROTOCOLPGM("ok T");
-      if(codenum != 0) { // extruder # only if A1 option is used (for compat.)
-        SERIAL_PROTOCOL((int)tmp_extruder);
-      }
-      SERIAL_PROTOCOLPGM(":");
-      SERIAL_PROTOCOL((int)(degHotend(tmp_extruder) + 0.5));
-      #if (EXTRUDERS > 1)
-      for(tmp_extruder=0; codenum!=0 && tmp_extruder<EXTRUDERS; tmp_extruder++) {
-        if(tmp_extruder == active_extruder) {
-          continue;
-        }
-        SERIAL_PROTOCOLPGM(" T");
-        SERIAL_PROTOCOL((int)tmp_extruder);
-        SERIAL_PROTOCOLPGM(":");
-        SERIAL_PROTOCOL((int)(degHotend(tmp_extruder) + 0.5));
-      }
-      #endif // (EXTRUDERS > 1)
-      #if TEMP_BED_PIN > -1
-        SERIAL_PROTOCOLPGM(" B:");
-        SERIAL_PROTOCOL((int)(degBed() + 0.5));
-      #endif //TEMP_BED_PIN
-      SERIAL_PROTOCOLLN("");
+      SERIAL_PROTOCOLPGM("ok ");
+      printHeatersState((bool)codenum, tmp_extruder);
       break;
 
     case 109: 
@@ -1225,7 +1252,14 @@ void process_commands()
       if(setTargetedHotend(109)) {
         break;
       }
-      if ((code_seen('A') && code_value() > 0) || (follow_me != 0)) {
+      
+      bool new_mode = (code_seen('A') && code_value() > 0);
+    #if EXTRUDERS > 1
+      if ((new_mode) || (follow_me_heater)) 
+    #else // EXTRUDERS > 1
+      if (new_mode) 
+    #endif // EXTRUDERS > 1
+      {
         start_e = 0;
         end_e = EXTRUDERS;
       }
@@ -1235,65 +1269,86 @@ void process_commands()
         end_e = tmp_extruder + 1;
       }
       LCD_MESSAGEPGM(MSG_HEATING);   
-      #ifdef AUTOTEMP
-        autotemp_enabled = false;
-      #endif
+    #ifdef AUTOTEMP
+      autotemp_enabled = false;
+    #endif
       if (code_seen('S')) { 
         setTargetHotend((deg = code_value()), tmp_extruder);
         temp_adjustment = 0;
       }
-      if (code_seen('L') && temp_adjustment >= 0) {
-        deg = degTargetHotend(tmp_extruder);
-        deg = (deg > code_value()) ? (deg - code_value()) : 0;
-        setTargetHotend(deg, tmp_extruder);
-        temp_adjustment--;
-      }
-      if (code_seen('H') && temp_adjustment <= 0) {
-        deg = degTargetHotend(tmp_extruder) + code_value();
-        // if heating over max value should the machine will shut down
-        setTargetHotend(deg, tmp_extruder);
-        temp_adjustment++;
-      }
-      #ifdef AUTOTEMP
-        if (code_seen('S')) autotemp_min=deg;
-        if (code_seen('G')) autotemp_max=code_value();
-        if (code_seen('F')) 
-        {
-          autotemp_factor=code_value();
-          autotemp_enabled=true;
+      if (code_seen('L')) {
+        if(temp_adjustment >= 0) {
+          deg = degTargetHotend(tmp_extruder);
+          deg = (deg > code_value()) ? (deg - code_value()) : 0;
+          setTargetHotend(deg, tmp_extruder);
+          temp_adjustment--;
         }
-      #endif
+        else
+        {
+          SERIAL_ECHO_START;
+          SERIAL_ECHOLN(MSG_TEMP_ADJ_ERROR);
+          break;
+        }
+      }
+      if (code_seen('H')) {
+        if (temp_adjustment <= 0) {
+          deg = degTargetHotend(tmp_extruder) + code_value();
+          // if heating over max value should the machine will shut down
+          setTargetHotend(deg, tmp_extruder);
+          temp_adjustment++;
+        }
+        else
+        {
+          SERIAL_ECHO_START;
+          SERIAL_ECHOLN(MSG_TEMP_ADJ_ERROR);
+          break;
+        }
+      }
+
+    #ifdef AUTOTEMP
+      if (code_seen('S')) autotemp_min=deg;
+      if (code_seen('G')) autotemp_max=code_value();
+      if (code_seen('F')) 
+      {
+        autotemp_factor=code_value();
+        autotemp_enabled=true;
+      }
+    #endif
+
+      SERIAL_ECHO_START;
+      SERIAL_ECHOPGM(MSG_TEMPERATURE_TGT);
+      SERIAL_ECHOPAIR(" T", (int)tmp_extruder);
+      SERIAL_ECHOPAIR(":", (int)degTargetHotend(tmp_extruder));
+      SERIAL_ECHOLN("");
       
       setWatch();
       codenum = millis(); 
 
-      #ifdef TEMP_RESIDENCY_TIME
-        long residencyStart = -1;
-        int residencyTime = (code_seen('W')) ? code_value() : TEMP_RESIDENCY_TIME;
-      #endif //TEMP_RESIDENCY_TIME
-        bool done_temp = false;
-        while(!done_temp)
+    #ifdef TEMP_RESIDENCY_TIME
+      long residencyStart = -1;
+      int residencyTime = (code_seen('W')) ? code_value() : TEMP_RESIDENCY_TIME;
+    #endif //TEMP_RESIDENCY_TIME
+      bool done_temp = false;
+      while(!done_temp)
+      {
+        if((millis() - codenum) > 1000) 
         {
-          if((millis() - codenum) > 1000) 
+          int i;
+          // See if target extruder(s) have reached the temperature 
+          done_temp = true;
+          for(i = start_e; i < end_e; i++)
           {
-            int i;
-            // See if target extruder(s) have reached the temperature 
-            done_temp = true;
-            for(i = start_e; i < end_e; i++)
-            {
-              done_temp &= (degTargetHotend(i) == 0) || 
-                           (labs(degHotend(i) - degTargetHotend(i)) <= TEMP_WINDOW);
-            }
-            //Print Temp Reading and remaining time every 1 second while heating up/cooling down
-            SERIAL_PROTOCOLPGM("T:");
-            SERIAL_PROTOCOL((int)(degHotend(tmp_extruder) + 0.5)); 
-      #if TEMP_BED_PIN > -1
-            SERIAL_PROTOCOLPGM(" B:");
-            SERIAL_PROTOCOL((int)(degBed() + 0.5));
-      #endif
-            SERIAL_PROTOCOLLN("");
-      #if (EXTRUDERS > 1)
-            SERIAL_ECHO_START;
+            done_temp &= (degTargetHotend(i) == 0) || 
+                         (labs(degHotend(i) - degTargetHotend(i)) <= TEMP_WINDOW);
+          }
+          printHeatersState(new_mode, tmp_extruder);
+
+          // If using old style (no A1 option) output, use echo to display all extruders info.
+        #if (EXTRUDERS > 1) || TEMP_RESIDENCY_TIME
+          SERIAL_ECHO_START;
+        #endif // (EXTRUDERS > 1) || TEMP_RESIDENCY_TIME
+        #if (EXTRUDERS > 1)
+          if(!new_mode) {
             for(i = 0; i < EXTRUDERS; i++)
             {
               SERIAL_PROTOCOLPGM(" Ext");
@@ -1301,58 +1356,58 @@ void process_commands()
               SERIAL_PROTOCOLPGM(":");
               SERIAL_PROTOCOL((int)(degHotend(i) + 0.5)); 
             }
-      #endif
-      #ifdef TEMP_RESIDENCY_TIME
-            // Print the waiting info
-            SERIAL_PROTOCOLPGM(" Wait:");
-            if(residencyStart >= 0)
-            {
-              codenum = residencyTime - ((millis() - residencyStart) / 1000);
-              SERIAL_PROTOCOLLN(codenum);
-            }
-            else 
-            {
-              SERIAL_PROTOCOLLN("?");
-            }
-            // Logic to handle wait for temperature to stabilize
-            if(!done_temp) // Still reaching the target teperature(s)
-            {
-              residencyStart = -1;
-            }
-            else if(residencyStart < 0) // Start waiting for stabilization
-            {
-              residencyStart = millis();
-              done_temp = false;
-            }
-            else if(codenum > 0) // have to wait
-            {
-              done_temp = false;
-            }
-      #endif
-            codenum = millis();
           }
-          manage_heater();
-          manage_inactivity();
-          lcd_update();
+        #endif
+        #ifdef TEMP_RESIDENCY_TIME
+          // Print the waiting counter
+          SERIAL_PROTOCOLPGM(" Wait:");
+          if(residencyStart >= 0)
+          {
+            codenum = residencyTime - ((millis() - residencyStart) / 1000);
+            SERIAL_PROTOCOLLN(codenum);
+          }
+          else 
+          {
+            SERIAL_PROTOCOLLN("?");
+          }
+          // Logic to handle wait for temperature to stabilize
+          if(!done_temp) // Still reaching the target teperature(s)
+          {
+            residencyStart = -1;
+          }
+          else if(residencyStart < 0) // Start waiting for stabilization
+          {
+            residencyStart = millis();
+            done_temp = false;
+          }
+          else if(codenum > 0) // have to wait
+          {
+            done_temp = false;
+          }
+        #endif
+          codenum = millis();
         }
-        LCD_MESSAGEPGM(MSG_HEATING_COMPLETE);
-        starttime=millis();
+        manage_heater();
+        manage_inactivity();
+        lcd_update();
       }
-      break;
+      LCD_MESSAGEPGM(MSG_HEATING_COMPLETE);
+      starttime=millis();
+    }
+    break;
 
     case 190: // M190 - Wait for bed heater to reach target.
+    {
     #if TEMP_BED_PIN > -1
       LCD_MESSAGEPGM(MSG_BED_HEATING);
+      bool new_mode = (code_seen('A') && code_value() > 0);
       if (code_seen('S')) setTargetBed(code_value());
       codenum = millis(); 
       while(!isDoneHeatingBed())
       {
         if( (millis()-codenum) > 1000 ) //Print Temp Reading every 1 second while heating up.
         {
-          SERIAL_PROTOCOLPGM("T:");
-          SERIAL_PROTOCOL((int)(degHotend(ACTIVE_EXTRUDER) + 0.5));
-          SERIAL_PROTOCOLPGM(" B:");
-          SERIAL_PROTOCOLLN((int)(degBed() + 0.5)); 
+          printHeatersState(new_mode, tmp_extruder);
           codenum = millis(); 
         }
         manage_heater();
@@ -1361,43 +1416,44 @@ void process_commands()
       }
       LCD_MESSAGEPGM(MSG_BED_DONE);
     #endif
+    }
+    break;
+
+    case 106: //M106 Fan On
+      if(setTargetedHotend(106)) {
+        break;
+      }
+      if (code_seen('S')){
+        fanSpeed[tmp_extruder] = constrain(code_value(),0,255);
+      }
+      else {
+        fanSpeed[tmp_extruder] = 255;			
+      }
+      if (code_seen('A') && code_value() != 0) {
+        for(int i=0; i < EXTRUDERS; i++) {
+          fanSpeed[i] = fanSpeed[tmp_extruder];
+        }
+      }
       break;
 
-      case 106: //M106 Fan On
-        if(setTargetedHotend(106)) {
-          break;
-        }
-        if (code_seen('S')){
-          fanSpeed[tmp_extruder] = constrain(code_value(),0,255);
-        }
-        else {
-          fanSpeed[tmp_extruder] = 255;			
-        }
-        if (code_seen('A') && code_value() != 0) {
-          for(int i=0; i < EXTRUDERS; i++) {
-            fanSpeed[i] = fanSpeed[tmp_extruder];
-          }
-        }
+    case 107: //M107 Fan Off
+      if(setTargetedHotend(107)) {
         break;
+      }
+      if (code_seen('A') && code_value() != 0) {
+        for(int i=0; i < EXTRUDERS; i++) fanSpeed[i] = 0;
+      } else {
+        fanSpeed[tmp_extruder] = 0;
+      }
+      break;
 
-      case 107: //M107 Fan Off
-        if(setTargetedHotend(107)) {
-          break;
-        }
-        if (code_seen('A') && code_value() != 0) {
-          for(int i=0; i < EXTRUDERS; i++) fanSpeed[i] = 0;
-        } else {
-          fanSpeed[tmp_extruder] = 0;
-        }
-        break;
+  #if (PS_ON_PIN > -1)
+    case 80: // M80 - ATX Power On
+      SET_OUTPUT(PS_ON_PIN); //GND
+      WRITE(PS_ON_PIN, PS_ON_AWAKE);
+      break;
+  #endif
 
-    #if (PS_ON_PIN > -1)
-      case 80: // M80 - ATX Power On
-        SET_OUTPUT(PS_ON_PIN); //GND
-        WRITE(PS_ON_PIN, PS_ON_AWAKE);
-        break;
-      #endif
-      
     case 81: // M81 - ATX Power Off
       #if defined SUICIDE_PIN && SUICIDE_PIN > -1
         st_synchronize();
