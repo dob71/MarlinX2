@@ -47,6 +47,7 @@
 
 #ifndef MOTHERBOARD
 #define MOTHERBOARD 34
+#define REPRAPX2 // SUBFLAVOUR
 #endif
 
 //// The following define selects which power supply you have. Please choose the one that matches your setup
@@ -158,16 +159,14 @@
     //    #define  DEFAULT_Kp 7.0
     //    #define  DEFAULT_Ki 0.1  
     //    #define  DEFAULT_Kd 12  
+    #define  DEFAULT_Kp 7.0
+    #define  DEFAULT_Ki 0.5  
+    #define  DEFAULT_Kd 12  
 
     // Mendel Parts V9 on 12V    
     //    #define  DEFAULT_Kp 63.0
     //    #define  DEFAULT_Ki 2.25
     //    #define  DEFAULT_Kd 440
-
-    // Makergear RepRap X2
-    #define  DEFAULT_Kp 7.5
-    #define  DEFAULT_Ki (1.0 * PID_dT)
-    #define  DEFAULT_Kd (4.0 / PID_dT)
   #endif
    
   #ifdef PID_PI
@@ -234,6 +233,7 @@
 //#define COREXY
 
 // corse Endstop Settings
+// The pullups are needed if you directly connect a mechanical endswitch between the signal and ground pins.
 #define ENDSTOPPULLUPS // Comment this out (using // at the start of the line) to disable the endstop pullup resistors
 
 #ifdef ENDSTOPPULLUPS
@@ -246,10 +246,9 @@
   #define ENDSTOPPULLUP_ZMIN
 #endif
 
-// The pullups are needed if you directly connect a mechanical endswitch between the signal and ground pins.
-const bool X_ENDSTOPS_INVERTING = true; // set to true to invert the logic of the endstops. 
-const bool Y_ENDSTOPS_INVERTING = true; // set to true to invert the logic of the endstops. 
-const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of the endstops. 
+const bool X_ENDSTOPS_INVERTING = false; // set to true to invert the logic of the endstops. 
+const bool Y_ENDSTOPS_INVERTING = false; // set to true to invert the logic of the endstops. 
+const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of the endstops. 
 
 // If uncommented pins for MAX enstops are undefined
 //#define DISABLE_MAX_ENDSTOPS
@@ -274,10 +273,10 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 
 // Changes the direction of the movement on an axis.
 // For dual drive on an axis use numbered variations of the define and comment out the unnumberd.
-#define INVERT_X_DIR true    // X axis motor direction, for Mendel set to false, for Orca set to true
-//#define INVERT_X0_DIR true   // X axis first motor direction, for Mendel set to false, for Orca set to true
-//#define INVERT_X1_DIR false  // X axis second motor direction
-#define INVERT_Y_DIR false   // Y axis motor direction, for Mendel set to true, for Orca set to false
+#define INVERT_X_DIR false     // X axis motor direction, for Mendel set to false, for Orca set to true
+//#define INVERT_X0_DIR false  // X axis first motor direction, for Mendel set to false, for Orca set to true
+//#define INVERT_X1_DIR true   // X axis second motor direction
+#define INVERT_Y_DIR false     // Y axis motor direction, for Mendel set to true, for Orca set to false
 //#define INVERT_Y0_DIR false  // Y first motor direction, for Mendel set to true, for Orca set to false
 //#define INVERT_Y1_DIR true   // Y second motor direction
 #define INVERT_Z_DIR true    // for Mendel set to false, for Orca set to true
@@ -359,14 +358,14 @@ const bool Z_ENDSTOPS_INVERTING = true; // set to true to invert the logic of th
 
 // default settings 
 #define DEFAULT_AXIS_STEPS_PER_UNIT   {80.3232, 80.8900, 2284.7651, 757.2218} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
-#define DEFAULT_MAX_FEEDRATE          {500, 500, 7, 45} // X,Y,Z,E0...(mm/sec)    
+#define DEFAULT_MAX_FEEDRATE          {500, 500, 7, 23} // X,Y,Z,E0...(mm/sec)    
 #define DEFAULT_MAX_ACCELERATION      {9000,9000,100,9000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
-#define DEFAULT_RETRACT_ACCELERATION  {90000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
+#define DEFAULT_RETRACT_ACCELERATION  {60000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
 #define DEFAULT_ACCELERATION          3000    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
 
 #define DEFAULT_XYJERK                10.0    // (mm/sec)
 #define DEFAULT_ZJERK                 0.4     // (mm/sec)
-#define DEFAULT_EJERK                 {19}    // E0... (mm/sec) per extruder, max initial speed for retract moves
+#define DEFAULT_EJERK                 {20}    // E0... (mm/sec) per extruder, max initial speed for retract moves
 
 //===========================================================================
 //=============================Additional Features===========================

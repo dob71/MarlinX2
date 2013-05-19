@@ -172,7 +172,7 @@
 #define INVERT_E_STEP_PIN false
 
 // default stepper release if idle
-#define DEFAULT_STEPPER_DEACTIVE_TIME 60
+#define DEFAULT_STEPPER_DEACTIVE_TIME 600
 
 // Minimum feedrate
 #define DEFAULT_MINIMUMFEEDRATE       0.0

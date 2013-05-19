@@ -120,10 +120,12 @@ static int minttemp_raw[EXTRUDERS] = ARRAY_BY_EXTRUDERS( HEATER_0_RAW_LO_TEMP , 
 static int maxttemp_raw[EXTRUDERS] = ARRAY_BY_EXTRUDERS( HEATER_0_RAW_HI_TEMP , HEATER_1_RAW_HI_TEMP , HEATER_2_RAW_HI_TEMP );
 static int minttemp[EXTRUDERS] = ARRAY_BY_EXTRUDERS( 0, 0, 0 );
 static int maxttemp[EXTRUDERS] = ARRAY_BY_EXTRUDERS( 16383, 16383, 16383 );
-//static int bed_minttemp_raw = HEATER_BED_RAW_LO_TEMP; /* No bed mintemp error implemented?!? */
+#ifdef BED_MINTEMP
+static int bed_minttemp_raw = HEATER_BED_RAW_LO_TEMP;
+#endif // BED_MINTEMP
 #ifdef BED_MAXTEMP
 static int bed_maxttemp_raw = HEATER_BED_RAW_HI_TEMP;
-#endif
+#endif // BED_MAXTEMP
 static void *heater_ttbl_map[EXTRUDERS] = ARRAY_BY_EXTRUDERS( (void *)HEATER_0_TEMPTABLE, (void *)HEATER_1_TEMPTABLE, (void *)HEATER_2_TEMPTABLE );
 static uint8_t heater_ttbllen_map[EXTRUDERS] = ARRAY_BY_EXTRUDERS( HEATER_0_TEMPTABLE_LEN, HEATER_1_TEMPTABLE_LEN, HEATER_2_TEMPTABLE_LEN );
 
@@ -737,23 +739,22 @@ void tp_init()
 #endif //MAXTEMP 2
 
 #ifdef BED_MINTEMP
-  /* No bed MINTEMP error implemented?!? */ /*
   while(analog2tempBed(bed_minttemp_raw) < BED_MINTEMP) {
-#if HEATER_BED_RAW_LO_TEMP < HEATER_BED_RAW_HI_TEMP
+  #if HEATER_BED_RAW_LO_TEMP < HEATER_BED_RAW_HI_TEMP
     bed_minttemp_raw += OVERSAMPLENR;
-#else
+  #else
     bed_minttemp_raw -= OVERSAMPLENR;
-#endif
+  #endif
   }
-  */
 #endif //BED_MINTEMP
+
 #ifdef BED_MAXTEMP
   while(analog2tempBed(bed_maxttemp_raw) > BED_MAXTEMP) {
-#if HEATER_BED_RAW_LO_TEMP < HEATER_BED_RAW_HI_TEMP
+  #if HEATER_BED_RAW_LO_TEMP < HEATER_BED_RAW_HI_TEMP
     bed_maxttemp_raw -= OVERSAMPLENR;
-#else
+  #else
     bed_maxttemp_raw += OVERSAMPLENR;
-#endif
+  #endif
   }
 #endif //BED_MAXTEMP
 }
@@ -837,19 +838,27 @@ void min_temp_error(uint8_t e) {
   #endif
 }
 
-void bed_max_temp_error(void) {
-#if HEATER_BED_PIN > -1
+#if defined(BED_MINTEMP) || defined(BED_MAXTEMP)
+void bed_temp_error(bool max) {
+  #if HEATER_BED_PIN > -1
   WRITE(HEATER_BED_PIN, 0);
-#endif
+  #endif
   if(IsStopped() == false) {
     SERIAL_ERROR_START;
-    SERIAL_ERRORLNPGM("Temperature heated bed switched off. MAXTEMP triggered !!");
-    LCD_ALERTMESSAGEPGM("Err: MAXTEMP BED");
+    SERIAL_ERRORLNPGM("Heated bed switched off. ");
+    if(max) {
+      SERIAL_ERRORLNPGM("MAXTEMP triggered !");
+      LCD_ALERTMESSAGEPGM("Err: MAXTEMP BED");
+    } else {
+      SERIAL_ERRORLNPGM("MINTEMP triggered !");
+      LCD_ALERTMESSAGEPGM("Err: MINTEMP BED");
+    }
   }
   #ifndef BOGUS_TEMPERATURE_FAILSAFE_OVERRIDE
   Stop();
   #endif
 }
+#endif // defined(BED_MINTEMP) || defined(BED_MAXTEMP)
 
 #ifdef HEATER_0_USES_MAX6675
 #define MAX6675_HEAT_INTERVAL 250
@@ -1121,17 +1130,28 @@ ISR(TIMER0_COMPB_vect)
         min_temp_error(2);
     }
 #endif
-  
-  /* No bed MINTEMP error? */
-#if defined(BED_MAXTEMP) && (TEMP_SENSOR_BED != 0)
-# if HEATER_BED_RAW_LO_TEMP > HEATER_BED_RAW_HI_TEMP
-    if(current_temperature_bed_raw <= bed_maxttemp_raw) {
-#else
-    if(current_temperature_bed_raw >= bed_maxttemp_raw) {
-#endif
+
+#if TEMP_SENSOR_BED != 0
+  #ifdef BED_MINTEMP
+    #if HEATER_BED_RAW_LO_TEMP > HEATER_BED_RAW_HI_TEMP
+    if(current_temperature_bed_raw >= bed_minttemp_raw) {
+    #else
+    if(current_temperature_bed_raw <= bed_minttemp_raw) {
+    #endif
        target_temperature_bed = 0;
-       bed_max_temp_error();
+       bed_temp_error(false);
     }
-#endif
+  #endif // BED_MINTEMP
+  #ifdef BED_MAXTEMP
+    #if HEATER_BED_RAW_LO_TEMP > HEATER_BED_RAW_HI_TEMP
+    if(current_temperature_bed_raw <= bed_maxttemp_raw) {
+    #else
+    if(current_temperature_bed_raw >= bed_maxttemp_raw) {
+    #endif
+       target_temperature_bed = 0;
+       bed_temp_error(true);
+    }
+  #endif // BED_MAXTEMP
+#endif // TEMP_SENSOR_BED != 0
   }  
 }

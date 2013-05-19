@@ -178,19 +178,14 @@ dwell time for temperature stabilization (if enabled in the config).
 
 Note: If using old Printrun, your version might not accept the "T" command.
 You might need to open pronsole.py and change all occurances of
-
     if(l[0]=='M' or l[0]=="G"):
-
 to
-
     if(l[0]=='M' or l[0]=='G' or l[0]=='T'):
-
-
 
 
 More updates to readme:
 - Make a note that all setup commands now take 'T#' paramter
-- Make a note that M205 now uses M# for min travel feedrate and T# to 
+- Make a note that M205 now uses V# for min travel feedrate and T# to 
   specify extruder number the max E-jerk is being set for
 - Make note M204 use R instead of T for retract acceleration
 - Make note that acceleration and retract_aceleration are saved in EEPROM

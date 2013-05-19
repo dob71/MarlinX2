@@ -251,6 +251,7 @@ extern unsigned long stoptime;
   extern unsigned int debug_flags;
   #define C_COMPENSATION_DEBUG 0x0001
   #define PID_DEBUG            0x0002
+  #define FAN_DEBUG            0x0004
 #endif // ENABLE_DEBUG
 
 // Handling multiple extruders pins

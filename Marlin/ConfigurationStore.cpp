@@ -187,7 +187,7 @@ void Config_PrintSettings()
     SERIAL_ECHOLNPGM("Advanced variables: S=Min feedrate (mm/s), M=Min travel feedrate (mm/s), B=minimum segment time (us), X=maximum XY jerk (mm/s),  Z=maximum Z jerk (mm/s)");
     SERIAL_ECHO_START;
     SERIAL_ECHOPAIR("  M205 S",minimumfeedrate ); 
-    SERIAL_ECHOPAIR(" M" ,mintravelfeedrate ); 
+    SERIAL_ECHOPAIR(" V" ,mintravelfeedrate ); 
     SERIAL_ECHOPAIR(" B" ,minsegmenttime ); 
     SERIAL_ECHOPAIR(" X" ,max_xy_jerk ); 
     SERIAL_ECHOPAIR(" Z" ,max_z_jerk);
@@ -303,14 +303,12 @@ void Config_RetrieveSettings()
       #endif
       SERIAL_ECHO_START;
       SERIAL_ECHOLNPGM("Stored settings retreived:");
+      Config_PrintSettings();
     }
     else
     {
       Config_ResetDefault();
-      SERIAL_ECHO_START;
-      SERIAL_ECHOLN("Using Default settings:");
     }
-    Config_PrintSettings();
 }
 #endif
 
@@ -400,4 +398,7 @@ void Config_ResetDefault()
     Kc = DEFAULT_Kc;
 #endif//PID_ADD_EXTRUSION_RATE
 #endif//PIDTEMP
+    SERIAL_ECHO_START;
+    SERIAL_ECHOLN("Using Default settings:");
+    Config_PrintSettings();
 }

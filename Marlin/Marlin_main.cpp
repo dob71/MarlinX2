@@ -110,7 +110,7 @@
 // M202 - Set max acceleration in units/s^2 for travel moves (M202 X1000 Y1000) Unused in Marlin!!
 // M203 - Set maximum feedrate that your machine can sustain (M203 X200 Y200 Z300 E10000) in mm/sec
 // M204 - Set default acceleration: S normal moves T filament only moves (M204 S3000 T7000) im mm/sec^2  also sets minimum segment time in ms (B20000) to prevent buffer underruns and M20 minimum feedrate
-// M205 - Advanced settings:  minimum travel speed S=while printing T=travel only,  B=minimum segment time X= maximum xy jerk, Z=maximum Z jerk, E=maximum E jerk (for retracts)
+// M205 - Advanced settings:  minimum travel speed S=while printing V=travel only,  B=minimum segment time X= maximum xy jerk, Z=maximum Z jerk, E=maximum E jerk (for retracts)
 // M206 - set additional homeing offset
 // M207 - set retract length S[positive mm] F[feedrate mm/sec] Z[additional zlift/hop]
 // M208 - set recover=unretract length S[positive mm surplus to the M207 S*] F[feedrate mm/sec]
@@ -436,6 +436,14 @@ void setup()
   setup_photpin();
   
   lcd_init();
+
+  { /* Give it 1/2 of a second to accumulate temperature readings */
+     unsigned long m = millis();
+     while(millis() - m < 500) {
+       manage_heater();
+       lcd_update();
+     }
+  }  
 }
 
 /* Prints the temperatures state string, the new mode output includes 
@@ -532,7 +540,7 @@ void get_command()
       strchr_pointer = strchr(cmdbuffer[bufindw], 'N');
       if(strchr_pointer != NULL)
       {
-        gcode_N = (strtol(&cmdbuffer[bufindw][strchr_pointer - cmdbuffer[bufindw] + 1], NULL, 10));
+        gcode_N = (strtol(strchr_pointer + 1, NULL, 10));
         if(gcode_N != (gcode_LastN + 1) && (strstr(cmdbuffer[bufindw], "M110") == NULL)) {
           if(recovery_count <= 0) {
             SERIAL_ERROR_START;
@@ -547,10 +555,9 @@ void get_command()
         }
 
         byte checksum = 0;
-        byte count = 0;
-        while(cmdbuffer[bufindw][count] != '*')
+        for(strchr_pointer = cmdbuffer[bufindw]; *strchr_pointer != '*'; strchr_pointer++)
         {
-          if(!cmdbuffer[bufindw][count])
+          if(!*strchr_pointer)
           {
             SERIAL_ERROR_START;
             SERIAL_ERRORPGM(MSG_ERR_NO_CHECKSUM);
@@ -559,7 +566,7 @@ void get_command()
             serial_count = 0;
             return;
           }
-          checksum = checksum^cmdbuffer[bufindw][count++];
+          checksum = checksum^(*strchr_pointer);
         }
         if(strtol(strchr_pointer + 1, NULL, 10) != checksum)
         {
@@ -587,7 +594,6 @@ void get_command()
       strchr_pointer = strchr(cmdbuffer[bufindw], 'G');
       if(strchr_pointer != NULL)
       {
-        strchr_pointer = strchr(cmdbuffer[bufindw], 'G');
         switch(strtol(strchr_pointer + 1, NULL, 10)) {
         case 0:
         case 1:
@@ -1638,7 +1644,7 @@ void process_commands()
         break;
       }
       if(code_seen('S')) minimumfeedrate = code_value();
-      if(code_seen('M')) mintravelfeedrate = code_value();
+      if(code_seen('V')) mintravelfeedrate = code_value();
       if(code_seen('B')) minsegmenttime = code_value() ;
       if(code_seen('X')) max_xy_jerk = code_value() ;
       if(code_seen('Z')) max_z_jerk = code_value() ;

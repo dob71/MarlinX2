@@ -344,7 +344,7 @@ FORCE_INLINE void set_directions(uint8_t current_e)
   else { // +direction
     #if !defined COREXY  //NOT COREXY
       #if !defined(DUAL_X_DRIVE) || EXTRUDERS==1
-        WRITE(X_DIR_PIN, INVERT_X_DIR);
+        WRITE(X_DIR_PIN, !INVERT_X_DIR);
       #else
         if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, !INVERT_X0_DIR); }
         if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, !INVERT_X1_DIR); }

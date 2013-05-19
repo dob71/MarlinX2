@@ -385,7 +385,11 @@
 #define LED_PIN            13
 
 #if EXTRUDERS == 1
-#define FAN_PIN            9 // Using MOSFET on the RAMPS shield
+#ifdef REPRAPX2
+#  define FAN_PIN            4 // SER4 connector, RepRap X2 single extruder
+#else // REPRAPX2
+#  define FAN_PIN            9 // Using MOSFET on the RAMPS shield
+#endif // REPRAPX2
 #elif !defined(PER_EXTRUDER_FANS)
 #define FAN_PIN            4 // 2 hotends, 1 fan, using SER4 connector, external MOSFET
 #elif defined(PER_EXTRUDER_FANS)

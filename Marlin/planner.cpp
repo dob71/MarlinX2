@@ -550,10 +550,26 @@ void check_axes_activity()
     #ifdef PER_EXTRUDER_FANS
     if(fan_pin[e] > -1) {
       analogWrite(fan_pin[e], tail_fan_speed[e]);
+      #ifdef ENABLE_DEBUG
+      if((debug_flags & FAN_DEBUG) != 0 && (millis() & 0x1f) == 0) {
+        SERIAL_ECHO_START;
+        SERIAL_ECHO(" FAN_DEBUG Ext");
+        SERIAL_ECHO(e);
+        SERIAL_ECHO(": PWM:");
+        SERIAL_ECHOLN((int)tail_fan_speed[e]);
+      }
+      #endif //ENABLE_DEBUG
     }
     #else // PER_EXTRUDER_FANS
     if(e == ACTIVE_EXTRUDER && FAN_PIN > -1) {
       analogWrite(FAN_PIN, tail_fan_speed[e]);
+      #ifdef ENABLE_DEBUG
+      if((debug_flags & FAN_DEBUG) != 0 && (millis() & 0x1f) == 0) {
+        SERIAL_ECHO_START;
+        SERIAL_ECHO(" FAN_DEBUG PWM:");
+        SERIAL_ECHOLN((int)tail_fan_speed[e]);
+      }
+      #endif //ENABLE_DEBUG
     }
     #endif // PER_EXTRUDER_FANS
   } // end extruder loop
