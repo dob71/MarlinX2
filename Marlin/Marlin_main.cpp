@@ -211,10 +211,7 @@ float extruder_offset[2][EXTRUDERS] = {
 #ifdef C_COMPENSATION
   float gCComp[][EXTRUDERS][2] = { C_COMPENSATION };
   int gCComp_size[EXTRUDERS];
-  int gCComp_max_size = sizeof(gCComp) / ((EXTRUDERS * sizeof(float)) >> 1);
-  #ifdef ENABLE_DEBUG
-  bool insufficient_e_step_rate = false;
-  #endif
+  int gCComp_max_size = sizeof(gCComp) / ((EXTRUDERS * sizeof(float)) << 1);
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
@@ -1973,12 +1970,6 @@ void process_commands()
          SERIAL_ECHOPAIR(" C:", gCComp[pos][tmp_extruder][1]);
          SERIAL_ECHOLN("");
       }
-      #ifdef ENABLE_DEBUG
-      if((debug_flags & C_COMPENSATION_DEBUG) != 0 && insufficient_e_step_rate) {
-         SERIAL_ECHO_START;
-         SERIAL_ECHOLN("The C_COMPENSATION_E_RATE value is too high");
-      }
-      #endif // ENABLE_DEBUG
     }
     break;
     #endif // C_COMPENSATION

@@ -123,14 +123,22 @@ FORCE_INLINE block_t *plan_get_current_block()
   return(block);
 }
 
-// Gets the current block. Returns NULL if buffer empty
+// Returns true if there are blocks to process
 FORCE_INLINE bool blocks_queued() 
 {
   if (block_buffer_head == block_buffer_tail) { 
     return false; 
   }
-  else
-    return true;
+  return true;
+}
+
+// Returns true if there is only one block in the queue
+FORCE_INLINE bool is_last_block() 
+{
+  if (block_buffer_head == (block_buffer_tail+1) & (BLOCK_BUFFER_SIZE-1)) { 
+    return true; 
+  }
+  return false;
 }
 
 void allow_cold_extrudes(bool allow);

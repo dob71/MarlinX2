@@ -181,12 +181,12 @@ FORCE_INLINE void calc_c_comp(unsigned long s1, long &c1,
   for(int ii = 0; ii < gCComp_size[extruder]; ii++) 
   {
     if(s1 < low_bound && s2 < low_bound && s3 < low_bound) {
-      return; 
+      break; 
     }
     float high_bound = gCComp[ii][extruder][0] * axis_steps_per_unit[E_AXIS + extruder];
     float high_comp = gCComp[ii][extruder][1] * axis_steps_per_unit[E_AXIS + extruder];
-    float a = (low_bound - high_bound)/(low_comp - high_comp);
-    float b = (high_bound*low_comp - low_bound*high_comp)/(high_comp - low_comp);
+    float a = (low_comp - high_comp)/(low_bound - high_bound);
+    float b = (high_bound*low_comp - low_bound*high_comp)/(high_bound - low_bound);
     if(s1 >= low_bound && s1 < high_bound) {
       c1 = floor(a*s1 + b);
     } else if(s1 > high_bound) {
@@ -222,6 +222,11 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   if(final_rate < 120) {
     final_rate=120;  
   }
+  
+  // The code doesn't work for final rate higher that nominal
+  if(final_rate > target_rate) {
+    final_rate = target_rate;
+  }
 
   long acceleration = block->acceleration_st;
   int32_t accelerate_steps =
@@ -247,11 +252,16 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   long initial_advance = 0;
   long target_advance = 0;
   long final_advance = 0;
-  // Calculate advance values in steps
-  calc_c_comp(initial_rate, initial_advance, 
-              target_rate, target_advance, 
-              final_rate, final_advance,
-              block->active_extruder); 
+  // Set filament compensation values in steps (only if moving in X, Y and positive E)
+  if((block->steps_x > dropsegments || block->steps_y > dropsegments) && 
+     (block->steps_e > 0 && (block->direction_bits & (1<<E_AXIS)) == 0))
+  {
+    float e_factor = (float)block->steps_e / (float)block->step_event_count;
+    calc_c_comp(initial_rate * e_factor, initial_advance, 
+                target_rate * e_factor, target_advance, 
+                final_rate * e_factor, final_advance,
+                block->active_extruder);
+  }
 #endif // C_COMPENSATION
 
   // block->accelerate_until = accelerate_steps;
@@ -389,7 +399,7 @@ void planner_recalculate_trapezoids() {
       if (current->recalculate_flag || next->recalculate_flag) {
         // NOTE: Entry and exit factors always > 0 by all previous logic operations.
         calculate_trapezoid_for_block(current, current->entry_speed/current->nominal_speed,
-        next->entry_speed/current->nominal_speed);
+                                      next->entry_speed/current->nominal_speed);
         current->recalculate_flag = false; // Reset current only to ensure next trapezoid is computed
       }
     }
@@ -398,7 +408,7 @@ void planner_recalculate_trapezoids() {
   // Last/newest block in buffer. Exit speed is set with MINIMUM_PLANNER_SPEED. Always recalculated.
   if(next != NULL) {
     calculate_trapezoid_for_block(next, next->entry_speed/next->nominal_speed,
-    MINIMUM_PLANNER_SPEED/next->nominal_speed);
+                                  MINIMUM_PLANNER_SPEED/next->nominal_speed);
     next->recalculate_flag = false;
   }
 }

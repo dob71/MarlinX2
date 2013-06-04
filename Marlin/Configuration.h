@@ -359,7 +359,7 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // default settings 
 #define DEFAULT_AXIS_STEPS_PER_UNIT   {80.3232, 80.8900, 2284.7651, 757.2218} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
 #define DEFAULT_MAX_FEEDRATE          {500, 500, 7, 23} // X,Y,Z,E0...(mm/sec)    
-#define DEFAULT_MAX_ACCELERATION      {9000,9000,100,9000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
+#define DEFAULT_MAX_ACCELERATION      {900,900,100,5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
 #define DEFAULT_RETRACT_ACCELERATION  {60000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
 #define DEFAULT_ACCELERATION          3000    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
 
@@ -438,20 +438,39 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 //        C<compensation> - length (in mm) of the filament compressed 
 //        in the guiding tube when extruding at the given speed. 
 //        The table entries should be ordered by E speed value. 
-// The number of entries in this define determines the size of the table.
+// The number of entries in this define determines the max size of the table.
 // The compensation for speed 0mm/s is always 0mm and should not be listed.
 // For speeds higher than listed the compensation for the last entry is used.
 // Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
-//#define C_COMPENSATION  {{0.5, 1.0}}, \
-//                        {{1.5, 2.5}}, \
-//                        {{2.5, 4.0}}, \
-//                        {{5.0, 5.0}}
+#define C_COMPENSATION  {{0.5, 1.0}}, \
+                        {{1.5, 2.5}}, \
+                        {{2.5, 4.0}}, \
+                        {{5.0, 5.0}}
+
+// Speed at which to add/remove compensation filament. Lowering this value
+// decreases the speed at which firmware tries to achieve the desired 
+// filament compensation length. If the value is too low the machine will 
+// never be able to keep up maintaining the calculated length of the 
+// filament in the guiding tube, basically making the feature useless. 
+// If it is too high the extruder motor will start skipping. 
+// If your extruder motor skips steps while compensating you can lower this 
+// value and lower your max E-axis acceleration. The latter should allow more 
+// time for the priting speed changes and therefore for changing the 
+// compensation filament length. 
+#define C_COMPENSATION_SPEED 10
+
 // Compensation reuses old advance feature code for driving the extruders.
-// That code accumulates the number of E-steps to be made and periodically 
-// processes them. The following value controls how often (10-250).
+// That code counts the total number of E-steps to make and uses ISR to 
+// periodically process them. The rate value is the divider that controls 
+// how often that steps processing happens. 
 // 50 -> 5kHz  (250000 / 50 = 5000Hz)
 // 25 -> 10kHz (250000 / 25 = 10000Hz)
-#define C_COMPENSATION_E_RATE 50
+// Note that the too high value will limit the max E speed of your 
+// machine. You can calculate the rate using max E speed you want to 
+// support. It should be somewhere in the range from 10 to 50.
+// Formula: rate = 250000 / (max_E_speed_in steps/4)
+// TODO: get rid of this and use the stepper interrupt
+#define C_COMPENSATION_RATE 25
 
 // Uncomment the below define if the machine has individually controlled 
 // hotend fans. The pins for those fans have to be defined by 

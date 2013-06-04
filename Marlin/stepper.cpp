@@ -62,6 +62,7 @@ static long initial_to_target_advance; // difference from initial to target
 static long target_to_final_advance; // difference from target to final
 static long e_steps[EXTRUDERS]; // steps scheduled to be done by ISR0
 static uint8_t old_extruder; // extruder of the previously executed block
+volatile uint8_t steps_per_e_loop = 1;
 #endif // C_COMPENSATION
 static long acceleration_time, deceleration_time;
 //static unsigned long accelerate_until, decelerate_after, acceleration_rate, initial_rate, final_rate, nominal_rate;
@@ -282,13 +283,74 @@ FORCE_INLINE unsigned short calc_timer(unsigned short step_rate) {
   return timer;
 }
 
+#ifdef C_COMPENSATION
+// Calculate how many advance steps to do for the time iterval and 
+// set up variables for making E-steps. The time interval "timer" 
+// has to be expressed in 0.5us. "e" is the extruder number.
+FORCE_INLINE void set_up_e_steps_for_cycle(uint8_t e, unsigned short timer) {
+  static unsigned short timer_leftover = 0;
+  int desired_advance_steps = advance - old_advance;
+  long us_per_advance_step = 1000000 / (axis_steps_per_unit[E_AXIS + e] * C_COMPENSATION_SPEED);
+  int advance_steps_this_cycle = ((timer_leftover + timer) / us_per_advance_step) >> 1;
+  timer_leftover = (timer_leftover + timer) - ((advance_steps_this_cycle * us_per_advance_step) << 1);
+  if(fabs(desired_advance_steps) < advance_steps_this_cycle) {
+    advance_steps_this_cycle = desired_advance_steps;
+  } else {
+    advance_steps_this_cycle = copysign(advance_steps_this_cycle, desired_advance_steps);
+  }
+  // Do E steps + allowed number of advance steps
+  e_steps[e] += advance_steps_this_cycle;
+  old_advance += advance_steps_this_cycle;  
+  // Calculate number of e-steps per cycle of the e-steps processing interrupt
+  // timer -> how much time we have (in 0.5us), 
+  // e_steps[e] -> how many steps to make
+  unsigned short cycles = timer / (C_COMPENSATION_RATE << 3);
+  if(e_steps[e] > (cycles<<2)) {
+    steps_per_e_loop = 4;
+  }
+  else if(cycles >= e_steps[e]) {
+    steps_per_e_loop = 1;
+  } 
+  else {
+    steps_per_e_loop = (e_steps[e] + (cycles - 1))/cycles;
+  }
+  #if defined(C_COMPENSATION) && defined(ENABLE_DEBUG)
+  if((debug_flags & C_COMP_STEPS_DEBUG) != 0 && (millis() % 200) == 0)
+  {
+    static int last_done = 0;
+    if(last_done != millis() / 200) {
+         SERIAL_ECHO_START;
+         SERIAL_ECHOPAIR(" E#:", (int)e);
+         SERIAL_ECHOPAIR(" TI:", timer);
+         SERIAL_ECHOPAIR(" TL:", timer_leftover);
+         SERIAL_ECHOPAIR(" ES:", e_steps[e]);
+         SERIAL_ECHOPAIR(" EL:", (int)steps_per_e_loop);
+         SERIAL_ECHOPAIR(" US:", us_per_advance_step);
+         SERIAL_ECHOPAIR(" SL:", advance_steps_this_cycle);
+         SERIAL_ECHOPAIR(" SD:", desired_advance_steps);
+         SERIAL_ECHOPAIR(" OA:", old_advance);
+         SERIAL_ECHOPAIR(" NA:", advance);
+         SERIAL_ECHOPAIR(" SC:", step_events_completed);
+         SERIAL_ECHOLN("");
+         last_done = millis() / 200;
+    }
+  }
+  #endif // defined(C_COMPENSATION) && defined(ENABLE_DEBUG)
+}
+#endif // C_COMPENSATION
+
 // Initializes the trapezoid generator from the current block. Called whenever a new 
 // block begins.
 FORCE_INLINE void trapezoid_generator_reset(uint8_t current_e) {
-#ifdef C_COMPENSATION
+  #ifdef C_COMPENSATION
   advance = initial_advance = current_block->initial_advance;
   target_advance = current_block->target_advance;
-  final_advance = current_block->final_advance;
+  // Use advance based on the block final speed, only if there are more blocks to 
+  // process, otherwise go down to 0.
+  final_advance = 0;
+  if(!is_last_block()) {
+    final_advance = current_block->final_advance;
+  }
   initial_to_target_advance = target_advance - initial_advance;
   target_to_final_advance = final_advance - target_advance;
   // If extruder changes the old_advance is no longer valid and we assume that 
@@ -296,11 +358,27 @@ FORCE_INLINE void trapezoid_generator_reset(uint8_t current_e) {
   if(old_extruder != current_e) {
     old_advance = 0;
   }
-  // Do E steps + advance steps
-  e_steps[current_e] += advance - old_advance;
-  old_advance = advance;
   old_extruder = current_e;
-#endif // C_COMPENSATION
+  #endif // C_COMPENSATION
+  #ifdef ENABLE_DEBUG
+  if((debug_flags & C_ACCEL_STEPS_DEBUG) != 0) {
+    SERIAL_ECHO_START;
+    SERIAL_ECHOPAIR(" SC:", current_block->step_event_count);
+    SERIAL_ECHOPAIR(" AU:", current_block->accelerate_until);
+    SERIAL_ECHOPAIR(" DA:", current_block->decelerate_after);
+    SERIAL_ECHOLN("");
+  }
+  #ifdef C_COMPENSATION
+  if((debug_flags & C_COMPENSATION_DEBUG) != 0) {
+    SERIAL_ECHO_START;
+    SERIAL_ECHOPAIR(" OA:", old_advance);
+    SERIAL_ECHOPAIR(" IA:", initial_advance);
+    SERIAL_ECHOPAIR(" TA:", target_advance);
+    SERIAL_ECHOPAIR(" FA:", final_advance);
+    SERIAL_ECHOLN("");
+  }
+  #endif // C_COMPENSATION
+  #endif // ENABLE_DEBUG
   deceleration_time = 0;
   // step_rate to timer interval
   OCR1A_nominal = calc_timer(current_block->nominal_rate);
@@ -310,19 +388,6 @@ FORCE_INLINE void trapezoid_generator_reset(uint8_t current_e) {
   acceleration_time = calc_timer(acc_step_rate);
   OCR1A = acceleration_time;
   
-#if defined(C_COMPENSATION) && defined(ENABLE_DEBUG)
-  if((debug_flags & C_COMPENSATION_DEBUG) != 0) {
-    SERIAL_ECHO_START;
-    SERIAL_ECHOPGM("old_advance:");
-    SERIAL_ECHO(old_advance);
-    SERIAL_ECHOPGM(" initial_advance:");
-    SERIAL_ECHO(initial_advance);
-    SERIAL_ECHOPGM(" target_advance:");
-    SERIAL_ECHO(target_advance);
-    SERIAL_ECHOPGM(" final_advance:");
-    SERIAL_ECHOLN(final_advance);
-  }
-#endif // defined(C_COMPENSATION) && defined(C_COMPENSATION_DEBUG)
 }
 
 // Called once at each block init time to set the direction of the move
@@ -444,15 +509,13 @@ FORCE_INLINE void set_directions(uint8_t current_e)
 // It pops blocks from the block_buffer and executes them by pulsing the stepper pins appropriately. 
 ISR(TIMER1_COMPA_vect)
 {
-  uint8_t current_e = current_block->active_extruder;
-  
   // If there is no current block, attempt to pop one from the buffer
   if (current_block == NULL) {
     // Anything in the buffer?
     current_block = plan_get_current_block();
     if (current_block != NULL) {
       current_block->busy = true;
-      trapezoid_generator_reset(current_e);
+      trapezoid_generator_reset(current_block->active_extruder);
       counter_x = -(current_block->step_event_count >> 1);
       counter_y = counter_x;
       counter_z = counter_x;
@@ -468,18 +531,22 @@ ISR(TIMER1_COMPA_vect)
       #endif
       
       // Set movement direction variables and prepare motors 
-      set_directions(current_e);
+      set_directions(current_block->active_extruder);
     } 
     else {
       OCR1A=2000; // 1kHz.
-      // The queue has emptied, so assume that enough time has passed 
-      // for the compressed filament to run out...
       #ifdef C_COMPENSATION
-      old_advance = 0;
-      #endif
+      // The queue has emptied, but we might still need to make E steps
+      // to clear the compressed filament...
+      if(advance != old_advance) {
+        set_up_e_steps_for_cycle(old_extruder, 2000);
+      }
+      #endif // C_COMPENSATION
       return;
     }    
   } 
+
+  uint8_t current_e = current_block->active_extruder;
 
   // Set direction and check limit switches
   if ((out_bits & (1<<X_AXIS)) != 0) {   // stepping along -X axis
@@ -539,8 +606,7 @@ ISR(TIMER1_COMPA_vect)
     }
     #endif
   }
-  
-  
+
   if ((out_bits & (1<<Z_AXIS)) != 0) {   // -direction
     #if Z_MIN_PIN > -1
     CHECK_ENDSTOPS
@@ -570,7 +636,7 @@ ISR(TIMER1_COMPA_vect)
     #endif
   }
 
-  for(int8_t i=0; i < step_loops; i++) { // Take multiple steps per interrupt (For high speed moves) 
+  for(int8_t i=0; i < step_loops; i++) { // Take multiple steps per interrupt (for high speed moves) 
     #ifndef AT90USB
     MSerial.checkRx(); // Check for serial chars.
     #endif
@@ -723,10 +789,11 @@ ISR(TIMER1_COMPA_vect)
       WRITE(E0_STEP_PIN, INVERT_E_STEP_PIN);
       #endif // C_COMPENSATION
     }
+    
     step_events_completed += 1;  
     if(step_events_completed >= current_block->step_event_count) break;
   }
-  
+
   // Calculare new timer value
   unsigned short timer;
   unsigned short step_rate;
@@ -741,13 +808,9 @@ ISR(TIMER1_COMPA_vect)
 
     // step_rate to timer interval
     timer = calc_timer(acc_step_rate);
-    OCR1A = timer;
     acceleration_time += timer;
     #ifdef C_COMPENSATION
       advance = initial_advance + (step_events_completed*initial_to_target_advance)/current_block->accelerate_until;
-      // Do E steps + advance steps
-      e_steps[current_block->active_extruder] += advance - old_advance;
-      old_advance = advance;  
     #endif
   } 
   else if (step_events_completed > (unsigned long int)current_block->decelerate_after) {   
@@ -766,28 +829,36 @@ ISR(TIMER1_COMPA_vect)
 
     // step_rate to timer interval
     timer = calc_timer(step_rate);
-    OCR1A = timer;
     deceleration_time += timer;
     #ifdef C_COMPENSATION
       long decel_steps_completed = step_events_completed - current_block->decelerate_after;
       long decel_steps_total = current_block->step_event_count - current_block->decelerate_after;
       advance = target_advance + (decel_steps_completed*target_to_final_advance)/decel_steps_total;
-      // Do E steps + advance steps
-      e_steps[current_block->active_extruder] += advance - old_advance;
-      old_advance = advance;  
     #endif //C_COMPENSATION
   }
   else {
-    OCR1A = OCR1A_nominal;
+    timer = OCR1A_nominal;
     // ensure we're running at the correct step rate, even if we just came off an acceleration
     step_loops = step_loops_nominal;
+    #ifdef C_COMPENSATION
+      advance = current_block->target_advance;
+    #endif //C_COMPENSATION
   }
+  OCR1A = timer;
 
   // If current block is finished, reset pointer 
   if (step_events_completed >= current_block->step_event_count) {
     current_block = NULL;
     plan_discard_current_block();
-  }   
+    #ifdef C_COMPENSATION
+      advance = 0;
+    #endif //C_COMPENSATION
+  }
+  
+  #ifdef C_COMPENSATION
+  // Set up all we need to do E steps when compensation is enabled
+  set_up_e_steps_for_cycle(current_e, timer);
+  #endif //C_COMPENSATION
 }
 
 #ifdef C_COMPENSATION
@@ -795,12 +866,10 @@ ISR(TIMER1_COMPA_vect)
 // Timer 0 is shared with millies
 ISR(TIMER0_COMPA_vect)
 {
-  // 5kHz interrupt (250000 / 50 = 5000Hz)
-  // 10kHz interrupt (250000 / 25 = 10000Hz)
-  OCR0A += C_COMPENSATION_E_RATE;
+  OCR0A += C_COMPENSATION_RATE;
 
-  // Set E direction (Depends on E direction + advance)
-  for(unsigned char i=0; i<4; i++) {
+  // Set E direction (Depends on E direction + advance) and make step
+  for(unsigned char i=0; i<steps_per_e_loop; i++) {
     if (e_steps[0] != 0) {
       WRITE(E0_STEP_PIN, INVERT_E_STEP_PIN);
       if (e_steps[0] < 0) {
@@ -842,20 +911,6 @@ ISR(TIMER0_COMPA_vect)
     }
     #endif
   }
-  #ifdef ENABLE_DEBUG
-  if((debug_flags & C_COMPENSATION_DEBUG) != 0 && 
-     e_steps[0] != 0 
-     #if EXTRUDERS > 1
-     || e_steps[1] != 0 
-     #endif
-     #if EXTRUDERS > 2
-     || e_steps[2] != 0 
-     #endif
-    ) {
-    extern bool insufficient_e_step_rate;
-    insufficient_e_step_rate = true;
-  }
-  #endif // ENABLE_DEBUG
 }
 #endif // C_COMPENSATION
 
@@ -1085,10 +1140,8 @@ void st_init()
   #if defined(TCCR0A) && defined(WGM01)
     TCCR0A &= ~(1<<WGM01);
     TCCR0A &= ~(1<<WGM00);
-  #endif  
-    e_steps[0] = 0;
-    e_steps[1] = 0;
-    e_steps[2] = 0;
+  #endif
+    memset(e_steps, 0, sizeof(e_steps));
     TIMSK0 |= (1<<OCIE0A);
   #endif //C_COMPENSATION
   
@@ -1102,13 +1155,14 @@ void st_synchronize()
 {
   while( blocks_queued()
     #ifdef C_COMPENSATION
-           || e_steps[0] != 0
+         e_steps[0] != 0 ||
     #if EXTRUDERS > 1
-           || e_steps[1] != 0
+         e_steps[1] != 0 ||
     #endif
     #if EXTRUDERS > 2
-           || e_steps[2] != 0
+         e_steps[2] != 0 ||
     #endif
+         old_advance != advance
     #endif // C_COMPENSATION
        ) 
   {
