@@ -41,6 +41,8 @@ typedef struct {
     long initial_advance;                   // Steps to be ahead when entering the block
     long target_advance;                    // Steps to be ahead when done accelerating
     long final_advance;                     // Steps to be ahead when done with the block
+    long prev_advance;                      // On the forward plan calculation filled with final_advance of the prev block
+    long next_advance;                      // On the forward plan calculation filled with final_advance of the prev block
   #endif // C_COMPENSATION
 
   // Fields used by the motion planner to manage acceleration

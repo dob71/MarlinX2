@@ -223,7 +223,7 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
     final_rate=120;  
   }
   
-  // The code doesn't work for final rate higher that nominal
+  // Make sure the final rate is not higer that nominal
   if(final_rate > target_rate) {
     final_rate = target_rate;
   }
@@ -252,20 +252,31 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   long initial_advance = 0;
   long target_advance = 0;
   long final_advance = 0;
+  float e_factor = (float)block->steps_e / (float)block->step_event_count;
   // Set filament compensation values in steps (only if moving in X, Y and positive E)
   if((block->steps_x > dropsegments || block->steps_y > dropsegments) && 
      (block->steps_e > 0 && (block->direction_bits & (1<<E_AXIS)) == 0))
   {
-    float e_factor = (float)block->steps_e / (float)block->step_event_count;
     calc_c_comp(initial_rate * e_factor, initial_advance, 
                 target_rate * e_factor, target_advance, 
                 final_rate * e_factor, final_advance,
                 block->active_extruder);
+    #ifdef C_COMPENSATION_IGNORE_ACCELERATION
+    initial_advance = final_advance = target_advance;
+    #endif // C_COMPENSATION_IGNORE_ACCELERATION
+  } 
+  else if((block->steps_x <= dropsegments || block->steps_y <= dropsegments) && block->steps_e > 0)
+  {
+    // If retracting keep compensation unchanged from the previous block
+    if((block->direction_bits & (1<<E_AXIS)) != 0) {
+      initial_advance = target_advance = final_advance = block->prev_advance;
+    }
+    else { // If returning set compensation of the next block
+      initial_advance = target_advance = final_advance = block->next_advance;
+    }
   }
 #endif // C_COMPENSATION
 
-  // block->accelerate_until = accelerate_steps;
-  // block->decelerate_after = accelerate_steps+plateau_steps;
   CRITICAL_SECTION_START;  // Fill variables used by the stepper in a critical section
   if(block->busy == false) { // Don't update variables if block is busy.
     block->accelerate_until = accelerate_steps;
@@ -280,14 +291,6 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   }
   CRITICAL_SECTION_END;
 }                    
-
-// "Junction jerk" in this context is the immediate change in speed at the junction of two blocks.
-// This method will calculate the junction jerk as the euclidean distance between the nominal 
-// velocities of the respective blocks.
-//inline float junction_jerk(block_t *before, block_t *after) {
-//  return sqrt(
-//    pow((before->speed_x-after->speed_x), 2)+pow((before->speed_y-after->speed_y), 2));
-//}
 
 
 // The kernel called by planner_recalculate() when scanning the plan from last to first entry.
@@ -388,28 +391,48 @@ void planner_forward_pass() {
 // updating the blocks.
 void planner_recalculate_trapezoids() {
   int8_t block_index = block_buffer_tail;
-  block_t *current;
+  block_t *prev = NULL;
+  block_t *current = NULL;
   block_t *next = NULL;
 
   while(block_index != block_buffer_head) {
+    prev = current;
     current = next;
     next = &block_buffer[block_index];
     if (current) {
       // Recalculate if current block entry or exit junction speed has changed.
       if (current->recalculate_flag || next->recalculate_flag) {
+        #ifdef C_COMPENSATION
+        if(prev) {
+          current->prev_advance = prev->final_advance;
+        }
+        #endif // C_COMPENSATION
         // NOTE: Entry and exit factors always > 0 by all previous logic operations.
         calculate_trapezoid_for_block(current, current->entry_speed/current->nominal_speed,
                                       next->entry_speed/current->nominal_speed);
         current->recalculate_flag = false; // Reset current only to ensure next trapezoid is computed
+        #ifdef C_COMPENSATION
+        if(prev) {
+          prev->next_advance = current->initial_advance;
+        }
+        #endif // C_COMPENSATION
       }
     }
     block_index = next_block_index( block_index );
   }
   // Last/newest block in buffer. Exit speed is set with MINIMUM_PLANNER_SPEED. Always recalculated.
   if(next != NULL) {
+    #ifdef C_COMPENSATION
+    if(current) {
+      next->prev_advance = current->final_advance;
+    }
+    #endif // C_COMPENSATION
     calculate_trapezoid_for_block(next, next->entry_speed/next->nominal_speed,
                                   MINIMUM_PLANNER_SPEED/next->nominal_speed);
     next->recalculate_flag = false;
+    if(current) {
+      current->next_advance = next->initial_advance;
+    }
   }
 }
 
@@ -729,7 +752,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   delta_mm[Z_AXIS] = (target[Z_AXIS]-position[Z_AXIS])/axis_steps_per_unit[Z_AXIS];
   delta_mm[E_AXIS] = ((target[E_AXIS]-position[E_AXIS])/axis_steps_per_unit[E_AXIS + extruder]) *
                      extrudemultiply / 100.0;
-  if ( block->steps_x <=dropsegments && block->steps_y <=dropsegments && block->steps_z <=dropsegments )
+  if ( block->steps_x <= dropsegments && block->steps_y <= dropsegments && block->steps_z <= dropsegments )
   {
     block->millimeters = fabs(delta_mm[E_AXIS]);
     no_move = true;
@@ -775,19 +798,20 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     if(fabs(current_speed[i]) > max_feedrate[i])
       speed_factor = min(speed_factor, max_feedrate[i] / fabs(current_speed[i]));
   }
+
+#ifdef C_COMPENSATION
+#  define COMP_SPEED (gCCom_speed[extruder])
+#else // C_COMPENSATION
+#  define COMP_SPEED (0.0)
+#endif // C_COMPENSATION
+
   current_speed[E_AXIS] = delta_mm[E_AXIS] * inverse_second;
-  if(fabs(current_speed[E_AXIS]) > max_feedrate[E_AXIS + extruder])
+  if(fabs(current_speed[E_AXIS]) > max_feedrate[E_AXIS + extruder] - COMP_SPEED)
   {
-    speed_factor = min(speed_factor, max_feedrate[E_AXIS + extruder] / 
+    speed_factor = min(speed_factor, (max_feedrate[E_AXIS + extruder] - COMP_SPEED) / 
                                      fabs(current_speed[E_AXIS]));
   }
   
-  if(fabs(current_speed[E_AXIS]) > max_feedrate[E_AXIS + extruder])
-  {
-    speed_factor = min(speed_factor, max_feedrate[E_AXIS + extruder] / 
-                                     fabs(current_speed[E_AXIS]));
-  }
-
   // Max segement time in us.
 #ifdef XY_FREQUENCY_LIMIT
 #define MAX_FREQ_TIME (1000000.0/XY_FREQUENCY_LIMIT)
@@ -836,7 +860,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   // Compute and limit the acceleration rate for the trapezoid generator.  
   float steps_per_mm = block->step_event_count/block->millimeters;
-  if(block->steps_x <= dropsegments && block->steps_y <= dropsegments && block->steps_z <= dropsegments)
+  if(no_move)
   {
     block->acceleration_st = ceil(retract_acceleration[extruder] * steps_per_mm); // convert to: acceleration steps/sec^2
   }
@@ -866,7 +890,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   // For E-only moves use the user defined max for E axis otherwise use XY max
   float safe_speed;
-  if(block->steps_x <= dropsegments && block->steps_y <= dropsegments && block->steps_z <= dropsegments) {
+  if(no_move) {
      block->entry_speed = block->max_entry_speed = safe_speed = min(max_e_jerk[extruder], block->nominal_speed);
   }
   else
@@ -890,8 +914,8 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
       if(fabs(current_speed[Z_AXIS] - previous_speed[Z_AXIS]) > max_z_jerk) {
         vmax_junction_factor= min(vmax_junction_factor, (max_z_jerk/fabs(current_speed[Z_AXIS] - previous_speed[Z_AXIS])));
       } 
-      if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) > max_e_jerk[extruder]) {
-        vmax_junction_factor = min(vmax_junction_factor, (max_e_jerk[extruder]/fabs(current_speed[E_AXIS] - previous_speed[E_AXIS])));
+      if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) + COMP_SPEED > max_e_jerk[extruder]) {
+        vmax_junction_factor = min(vmax_junction_factor, (max_e_jerk[extruder]/(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS])) + COMP_SPEED));
       } 
       vmax_junction = min(previous_nominal_speed, vmax_junction * vmax_junction_factor); // Limit speed to max previous speed
     }
@@ -918,12 +942,12 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     block->recalculate_flag = true; // Always calculate trapezoid for new block
   }
   
+  calculate_trapezoid_for_block(block, block->entry_speed/block->nominal_speed,
+                                safe_speed/block->nominal_speed);
+
   // Update previous path unit_vector and nominal speed
   memcpy(previous_speed, current_speed, sizeof(previous_speed)); // previous_speed[] = current_speed[]
   previous_nominal_speed = block->nominal_speed;
-
-  calculate_trapezoid_for_block(block, block->entry_speed/block->nominal_speed,
-                                safe_speed/block->nominal_speed);
 
   // Move buffer head
   block_buffer_head = next_buffer_head;

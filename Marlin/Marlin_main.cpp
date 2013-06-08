@@ -212,6 +212,7 @@ float extruder_offset[2][EXTRUDERS] = {
   float gCComp[][EXTRUDERS][2] = { C_COMPENSATION };
   int gCComp_size[EXTRUDERS];
   int gCComp_max_size = sizeof(gCComp) / ((EXTRUDERS * sizeof(float)) << 1);
+  float gCCom_speed[EXTRUDERS] = C_COMPENSATION_SPEED;
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
@@ -1959,9 +1960,16 @@ void process_commands()
             size++);
         gCComp_size[tmp_extruder] = size;
       }
+      if(code_seen('R')) {
+        gCCom_speed[tmp_extruder] = code_value();
+      }
       // Print the compensation table
       SERIAL_ECHO_START;
       SERIAL_ECHOLN(MSG_CCOMP_TABLE);
+      SERIAL_ECHO_START;
+      SERIAL_ECHOPAIR("T:", (int)tmp_extruder);
+      SERIAL_ECHOPAIR(" R:", gCCom_speed[tmp_extruder]);
+      SERIAL_ECHOLN("");
       for(pos = 0; pos < gCComp_size[tmp_extruder]; pos++) 
       {
          SERIAL_ECHO_START;

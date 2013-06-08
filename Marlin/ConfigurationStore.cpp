@@ -184,7 +184,7 @@ void Config_PrintSettings()
     #endif
 
     SERIAL_ECHO_START;
-    SERIAL_ECHOLNPGM("Advanced variables: S=Min feedrate (mm/s), M=Min travel feedrate (mm/s), B=minimum segment time (us), X=maximum XY jerk (mm/s),  Z=maximum Z jerk (mm/s)");
+    SERIAL_ECHOLNPGM("Advanced variables: S=Min feedrate (mm/s), M=Min travel feedrate (mm/s), B=minimum segment time (us), X=max XY jerk (mm/s), Z=max Z jerk (mm/s), E=max E jerk (mm/s)");
     SERIAL_ECHO_START;
     SERIAL_ECHOPAIR("  M205 S",minimumfeedrate ); 
     SERIAL_ECHOPAIR(" V" ,mintravelfeedrate ); 

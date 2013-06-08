@@ -223,6 +223,7 @@ extern unsigned char fanSpeed[EXTRUDERS];
   extern float gCComp[][EXTRUDERS][2];
   extern int gCComp_size[EXTRUDERS];
   extern int gCComp_max_size;
+  extern float gCCom_speed[EXTRUDERS];
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
