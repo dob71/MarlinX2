@@ -358,14 +358,14 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 
 // default settings 
 #define DEFAULT_AXIS_STEPS_PER_UNIT   {80.3232, 80.8900, 2284.7651, 757.2218} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
-#define DEFAULT_MAX_FEEDRATE          {500, 500, 7, 23} // X,Y,Z,E0...(mm/sec)    
-#define DEFAULT_MAX_ACCELERATION      {1000, 700, 100, 5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
+#define DEFAULT_MAX_FEEDRATE          {230, 230, 7, 23} // X,Y,Z,E0...(mm/sec)    
+#define DEFAULT_MAX_ACCELERATION      {5000, 5000, 100, 5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
 #define DEFAULT_RETRACT_ACCELERATION  {60000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
-#define DEFAULT_ACCELERATION          700     // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
+#define DEFAULT_ACCELERATION          3000    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
 
 #define DEFAULT_XYJERK                2.0     // (mm/sec)
 #define DEFAULT_ZJERK                 0.4     // (mm/sec)
-#define DEFAULT_EJERK                 {18}    // E0... (mm/sec) per extruder, max initial speed for retract moves
+#define DEFAULT_EJERK                 {17}    // E0... (mm/sec) per extruder, max initial speed for retract moves
 
 //===========================================================================
 //=============================Additional Features===========================
@@ -443,31 +443,24 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // For speeds higher than listed the compensation for the last entry is used.
 // Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
 #define C_COMPENSATION  {{0.1, 0.3}}, \
-                        {{0.4, 0.7}}, \
-                        {{0.7, 1.5}}, \
-                        {{2.0, 2.0}}
+                        {{0.5, 0.9}}, \
+                        {{1.0, 1.2}}, \
+                        {{3.0, 2.0}}
 
-// Speed at which to add/remove compensation filament. Lowering this value
-// decreases the speed at which firmware tries to achieve the desired 
-// filament compensation length. If the value is too low the machine will 
-// never be able to keep up maintaining the calculated length of the 
-// filament in the guiding tube, basically making the feature useless. 
-// If it is too high extruder will be moving like crazy. In theory the 
-// value should be chosen to work together with the acceleration and compensation 
-// table values. Also the allowed speed jerk should be lowered as much as possible. 
-// For example if your max feedrate is 500mm/sec and it requires 3mm compensation, 
-// then the compensation rate of 3mm/sec will allow to add/remove those 3mm in 1sec 
-// and therefore your acceleration should also be on the order of 500mm/sec.
-// That is presuming the jerk speed is negligeble.
-// Can be configured per-extruder, M340 R<val> changes it on the fly.
-#define C_COMPENSATION_SPEED { 3 }
+// Minimum speed at which to add/remove compensation filament. For each move the 
+// firmware tries to compensate filament at the speed that assures that the max-E-jerk
+// or max-E-feedrate limits are not broken. If the move itself is requires E-speed 
+// at the mentioned limits, it will be slowed down to allow room for the minimum
+// compensation speed that is set here (normaly those would be retract/return moves). 
+#define C_COMPENSATION_MIN_SPEED { 3 }
 
 // Since each move usually has acceleration, normal travel and then deceleration 
 // compensation has to be adjusted constantly causing a lot of extruder  
 // thrashing. This define tells the firmware to use single compensation value for 
-// entire move duration. As usually the desired compensation for the move will 
-// be attempted to achieve at the C_COMPENSATION_SPEED rate. 
-//#define C_COMPENSATION_IGNORE_ACCELERATION
+// entire move duration. Use this define if using acceleration rate too high for 
+// the the machine to adjust the compensation filament length to match its speed
+// (that is normally the case for conventional configurations).
+#define C_COMPENSATION_IGNORE_ACCELERATION
 
 // Uncomment the below define if the machine has individually controlled 
 // hotend fans. The pins for those fans have to be defined by 

@@ -212,7 +212,7 @@ float extruder_offset[2][EXTRUDERS] = {
   float gCComp[][EXTRUDERS][2] = { C_COMPENSATION };
   int gCComp_size[EXTRUDERS];
   int gCComp_max_size = sizeof(gCComp) / ((EXTRUDERS * sizeof(float)) << 1);
-  float gCCom_speed[EXTRUDERS] = C_COMPENSATION_SPEED;
+  float gCCom_min_speed[EXTRUDERS] = C_COMPENSATION_MIN_SPEED;
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
@@ -1961,14 +1961,14 @@ void process_commands()
         gCComp_size[tmp_extruder] = size;
       }
       if(code_seen('R')) {
-        gCCom_speed[tmp_extruder] = code_value();
+        gCCom_min_speed[tmp_extruder] = code_value();
       }
       // Print the compensation table
       SERIAL_ECHO_START;
       SERIAL_ECHOLN(MSG_CCOMP_TABLE);
       SERIAL_ECHO_START;
       SERIAL_ECHOPAIR("T:", (int)tmp_extruder);
-      SERIAL_ECHOPAIR(" R:", gCCom_speed[tmp_extruder]);
+      SERIAL_ECHOPAIR(" R:", gCCom_min_speed[tmp_extruder]);
       SERIAL_ECHOLN("");
       for(pos = 0; pos < gCComp_size[tmp_extruder]; pos++) 
       {
@@ -2038,7 +2038,13 @@ void process_commands()
     {
       if(code_seen('S')) 
       {
-        debug_flags = code_value() ;
+        debug_flags = code_value();
+      }
+      if(code_seen('P')) 
+      {
+        if((((unsigned short)code_value()) & DEBUG_PRINT_PLAN) != 0) {
+          planner_print_plan();
+        }
       }
       SERIAL_ECHO_START;
       SERIAL_ECHO(MSG_DBG_FLAG);
@@ -2438,6 +2444,7 @@ void manage_inactivity()
     if( (millis() - previous_millis_cmd) >  stepper_inactive_time ) 
     {
       if(blocks_queued() == false) {
+        st_synchronize();
         disable_x();
         disable_y();
         disable_z();

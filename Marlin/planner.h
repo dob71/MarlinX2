@@ -37,12 +37,16 @@ typedef struct {
   long acceleration_rate;                   // The acceleration rate used for acceleration calculation
   unsigned char direction_bits;             // The direction bit set for this block (refers to *_DIRECTION_BIT in config.h)
   unsigned char active_extruder;            // Selects the active extruder
+  bool retract;                             // Identified as retract move block (not yet used)
+  bool restore;                             // Identified as return move block
+  bool travel;                              // Identified as travel move block
   #ifdef C_COMPENSATION
     long initial_advance;                   // Steps to be ahead when entering the block
     long target_advance;                    // Steps to be ahead when done accelerating
     long final_advance;                     // Steps to be ahead when done with the block
-    long prev_advance;                      // On the forward plan calculation filled with final_advance of the prev block
-    long next_advance;                      // On the forward plan calculation filled with final_advance of the prev block
+    long prev_advance;                      // Filled with final_advance of the prev block
+    long next_advance;                      // Filled with initial_advance of the next block
+    unsigned short advance_step_rate;       // How fast to advance in this block
   #endif // C_COMPENSATION
 
   // Fields used by the motion planner to manage acceleration
@@ -75,7 +79,9 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 void plan_set_position(const float &x, const float &y, const float &z, const float &e);
 void plan_set_e_position(const float &e);
 
-
+#ifdef ENABLE_DEBUG
+void planner_print_plan();
+#endif
 
 void check_axes_activity();
 uint8_t movesplanned(); //return the nr of buffered moves

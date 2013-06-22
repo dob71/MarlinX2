@@ -187,21 +187,25 @@ FORCE_INLINE void calc_c_comp(unsigned long s1, long &c1,
     float high_comp = gCComp[ii][extruder][1] * axis_steps_per_unit[E_AXIS + extruder];
     float a = (low_comp - high_comp)/(low_bound - high_bound);
     float b = (high_bound*low_comp - low_bound*high_comp)/(high_bound - low_bound);
-    if(s1 >= low_bound && s1 < high_bound) {
-      c1 = floor(a*s1 + b);
-    } else if(s1 > high_bound) {
-      c1 = floor(high_comp);
-    }
     if(s2 >= low_bound && s2 < high_bound) {
       c2 = floor(a*s2 + b);
     } else if(s2 > high_bound) {
       c2 = floor(high_comp);
+    }
+    #ifdef C_COMPENSATION_IGNORE_ACCELERATION
+    c1 = c3 = c2;
+    #else // C_COMPENSATION_IGNORE_ACCELERATION
+    if(s1 >= low_bound && s1 < high_bound) {
+      c1 = floor(a*s1 + b);
+    } else if(s1 > high_bound) {
+      c1 = floor(high_comp);
     }
     if(s3 >= low_bound && s3 < high_bound) {
       c3 = floor(a*s3 + b);
     } else if(s3 > high_bound) {
       c3 = floor(high_comp);
     }
+    #endif // C_COMPENSATION_IGNORE_ACCELERATION
     low_bound = high_bound;
     low_comp = high_comp;
   }
@@ -249,9 +253,9 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   }
 
 #ifdef C_COMPENSATION
-  long initial_advance = 0;
-  long target_advance = 0;
-  long final_advance = 0;
+  long initial_advance;
+  long target_advance;
+  long final_advance;
   float e_factor = (float)block->steps_e / (float)block->step_event_count;
   // Set filament compensation values in steps (only if moving in X, Y and positive E)
   if((block->steps_x > dropsegments || block->steps_y > dropsegments) && 
@@ -261,19 +265,10 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
                 target_rate * e_factor, target_advance, 
                 final_rate * e_factor, final_advance,
                 block->active_extruder);
-    #ifdef C_COMPENSATION_IGNORE_ACCELERATION
-    initial_advance = final_advance = target_advance;
-    #endif // C_COMPENSATION_IGNORE_ACCELERATION
   } 
-  else if((block->steps_x <= dropsegments || block->steps_y <= dropsegments) && block->steps_e > 0)
+  else // For all other blocks keep compensation unchanged
   {
-    // If retracting keep compensation unchanged from the previous block
-    if((block->direction_bits & (1<<E_AXIS)) != 0) {
-      initial_advance = target_advance = final_advance = block->prev_advance;
-    }
-    else { // If returning set compensation of the next block
-      initial_advance = target_advance = final_advance = block->next_advance;
-    }
+    initial_advance = target_advance = final_advance = block->prev_advance;
   }
 #endif // C_COMPENSATION
 
@@ -386,6 +381,36 @@ void planner_forward_pass() {
   planner_forward_pass_kernel(block[1], block[2], NULL);
 }
 
+#ifdef ENABLE_DEBUG
+void planner_print_plan() {
+  int8_t block_index = block_buffer_tail;
+  block_t *current = NULL;
+  while(block_index != block_buffer_head) {
+    current = &block_buffer[block_index];
+    SERIAL_ECHO_START;
+    SERIAL_ECHOPAIR("I:", (int)block_index);
+    SERIAL_ECHOPAIR(" AE:", (int)current->active_extruder);
+    SERIAL_ECHOPAIR(" ES:", current->entry_speed);
+    SERIAL_ECHOPAIR(" NS:", current->nominal_speed);
+    SERIAL_ECHOPAIR(" TD:", current->millimeters);
+    SERIAL_ECHOPAIR(" AC:", current->acceleration);
+    SERIAL_ECHOPAIR(" SC:", current->step_event_count);
+    SERIAL_ECHOPAIR(" SX:", current->steps_x);
+    SERIAL_ECHOPAIR(" SY:", current->steps_y);
+    SERIAL_ECHOPAIR(" SE:", current->steps_e);
+    #ifdef C_COMPENSATION
+    SERIAL_ECHOPAIR(" IA:", current->initial_advance);
+    SERIAL_ECHOPAIR(" TA:", current->target_advance);
+    SERIAL_ECHOPAIR(" FA:", current->final_advance);
+    SERIAL_ECHOPAIR(" PA:", current->prev_advance);
+    SERIAL_ECHOPAIR(" NA:", current->next_advance);
+    #endif // C_COMPENSATION
+    SERIAL_ECHOLN("");
+    block_index = next_block_index( block_index );
+  }
+}
+#endif // ENABLE_DEBUG
+
 // Recalculates the trapezoid speed profiles for all blocks in the plan according to the 
 // entry_factor for each junction. Must be called by planner_recalculate() after 
 // updating the blocks.
@@ -405,14 +430,14 @@ void planner_recalculate_trapezoids() {
         #ifdef C_COMPENSATION
         if(prev) {
           current->prev_advance = prev->final_advance;
-        }
+        } 
         #endif // C_COMPENSATION
         // NOTE: Entry and exit factors always > 0 by all previous logic operations.
         calculate_trapezoid_for_block(current, current->entry_speed/current->nominal_speed,
                                       next->entry_speed/current->nominal_speed);
         current->recalculate_flag = false; // Reset current only to ensure next trapezoid is computed
         #ifdef C_COMPENSATION
-        if(prev) {
+        if(prev && prev->next_advance != current->initial_advance) {
           prev->next_advance = current->initial_advance;
         }
         #endif // C_COMPENSATION
@@ -430,9 +455,11 @@ void planner_recalculate_trapezoids() {
     calculate_trapezoid_for_block(next, next->entry_speed/next->nominal_speed,
                                   MINIMUM_PLANNER_SPEED/next->nominal_speed);
     next->recalculate_flag = false;
+    #ifdef C_COMPENSATION
     if(current) {
       current->next_advance = next->initial_advance;
     }
+    #endif // C_COMPENSATION
   }
 }
 
@@ -739,10 +766,12 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   if (block->steps_e == 0)
   {
     if(feed_rate<mintravelfeedrate) feed_rate=mintravelfeedrate;
+    block->travel = true;
   }
   else
   {
     if(feed_rate<minimumfeedrate) feed_rate=minimumfeedrate;
+    block->travel = false;
   } 
 
   bool no_move;
@@ -752,10 +781,21 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   delta_mm[Z_AXIS] = (target[Z_AXIS]-position[Z_AXIS])/axis_steps_per_unit[Z_AXIS];
   delta_mm[E_AXIS] = ((target[E_AXIS]-position[E_AXIS])/axis_steps_per_unit[E_AXIS + extruder]) *
                      extrudemultiply / 100.0;
+
+  block->retract = block->restore = false;
   if ( block->steps_x <= dropsegments && block->steps_y <= dropsegments && block->steps_z <= dropsegments )
   {
     block->millimeters = fabs(delta_mm[E_AXIS]);
     no_move = true;
+    // If retracting/returning mark the block as such
+    if(block->steps_e != 0) {
+      if((block->direction_bits & (1<<E_AXIS)) != 0) {
+        block->retract = true;
+      }
+      else {
+        block->restore = true;
+      }
+    }
   } 
   else
   {
@@ -798,11 +838,14 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     if(fabs(current_speed[i]) > max_feedrate[i])
       speed_factor = min(speed_factor, max_feedrate[i] / fabs(current_speed[i]));
   }
-
+  
 #ifdef C_COMPENSATION
-#  define COMP_SPEED (gCCom_speed[extruder])
+# define COMP_SPEED (gCCom_min_speed[extruder])
+  block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * gCCom_min_speed[extruder];
+  block->prev_advance = 0;
+  block->next_advance = 0;
 #else // C_COMPENSATION
-#  define COMP_SPEED (0.0)
+# define COMP_SPEED (0.0)
 #endif // C_COMPENSATION
 
   current_speed[E_AXIS] = delta_mm[E_AXIS] * inverse_second;
@@ -924,6 +967,14 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     // Initialize block entry speed. Compute based on deceleration to user-defined MINIMUM_PLANNER_SPEED.
     double v_allowable = max_allowable_speed(-block->acceleration,MINIMUM_PLANNER_SPEED,block->millimeters);
     block->entry_speed = min(vmax_junction, v_allowable);
+
+#ifdef C_COMPENSATION
+    // Bump up the compensation speed to e-jerk if can
+    if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) + COMP_SPEED < max_e_jerk[extruder]) {
+      block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * 
+                                 (max_e_jerk[extruder] - fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]));
+    } 
+#endif // C_COMPENSATION
 
     // Initialize planner efficiency flags
     // Set flag if block will always reach maximum junction speed regardless of entry/exit speeds.

@@ -223,7 +223,7 @@ extern unsigned char fanSpeed[EXTRUDERS];
   extern float gCComp[][EXTRUDERS][2];
   extern int gCComp_size[EXTRUDERS];
   extern int gCComp_max_size;
-  extern float gCCom_speed[EXTRUDERS];
+  extern float gCCom_min_speed[EXTRUDERS];
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
@@ -249,12 +249,17 @@ extern unsigned long starttime;
 extern unsigned long stoptime;
 
 #ifdef ENABLE_DEBUG
+  // These are debug flags that when set enable printing out various info
+  // during printer operation. Use with M504 S<DBG_SET_FLAGS>
   extern unsigned int debug_flags;
   #define PID_DEBUG            0x0001
   #define FAN_DEBUG            0x0002
   #define C_COMPENSATION_DEBUG 0x0004
   #define C_COMP_STEPS_DEBUG   0x0008
   #define C_ACCEL_STEPS_DEBUG  0x0010
+  // These are debug flags that can be used with M504 P<DBG_PRINT_FLAGS> 
+  // for printing out information by the M504 command itself.
+  #define DEBUG_PRINT_PLAN     0x0001
 #endif // ENABLE_DEBUG
 
 // Handling multiple extruders pins

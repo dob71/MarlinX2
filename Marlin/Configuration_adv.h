@@ -268,6 +268,12 @@ const unsigned int dropsegments = 5;
   #define PS_ON_ASLEEP LOW
 #endif
 
+// This is advanced filament compression compensation (C_COMPENSATION) parameter. 
+// Uncomment the below define if expecting long slow moves with too many E-steps 
+// per time slice due to the compensation. The define enables code splitting those 
+// steps into chunks of 4 or less.
+#define C_COMPENSATION_SPLIT_E_STEPS
+
 //===========================================================================
 //=============================Buffers           ============================
 //===========================================================================
