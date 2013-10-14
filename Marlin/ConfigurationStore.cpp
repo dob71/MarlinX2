@@ -85,21 +85,15 @@ void Config_StoreSettings()
   EEPROM_WRITE_VAR(i,absPreheatHotendTemp);
   EEPROM_WRITE_VAR(i,absPreheatHPBTemp);
   EEPROM_WRITE_VAR(i,absPreheatFanSpeed);
-  #ifdef PIDTEMP
-    EEPROM_WRITE_VAR(i,Kp);
-    EEPROM_WRITE_VAR(i,Ki);
-    EEPROM_WRITE_VAR(i,Kd);
-    #ifdef PID_FUNCTIONAL_RANGE
-      EEPROM_WRITE_VAR(i,Kr);
-    #else // PID_FUNCTIONAL_RANGE
-      EEPROM_WRITE_VAR(i,0);
-    #endif // PID_FUNCTIONAL_RANGE
-  #else // PIDTEMP
-    EEPROM_WRITE_VAR(i,3000);
-    EEPROM_WRITE_VAR(i,0);
-    EEPROM_WRITE_VAR(i,0);
-    EEPROM_WRITE_VAR(i,0);
+  #if !defined(PIDTEMP)
+    float Kp = 3000, Ki = 0, Kd = 0, Kr = 0;
+  #elif !defined(PID_FUNCTIONAL_RANGE)
+    float Kr = 0;
   #endif // PIDTEMP
+  EEPROM_WRITE_VAR(i,Kp);
+  EEPROM_WRITE_VAR(i,Ki);
+  EEPROM_WRITE_VAR(i,Kd);
+  EEPROM_WRITE_VAR(i,Kr);
   char ver2[4]=EEPROM_VERSION;
   i=EEPROM_OFFSET;
   EEPROM_WRITE_VAR(i,ver2); // validate data
@@ -226,6 +220,9 @@ void Config_PrintSettings()
     SERIAL_ECHOPAIR("   M301 P",Kp); 
     SERIAL_ECHOPAIR(" I" ,Ki/PID_dT); 
     SERIAL_ECHOPAIR(" D" ,Kd*PID_dT);
+    #ifdef PID_FUNCTIONAL_RANGE
+    SERIAL_ECHOPAIR(" R" ,Kr);
+    #endif
     SERIAL_ECHOLN(""); 
 #endif
 } 
@@ -261,10 +258,10 @@ void Config_RetrieveSettings()
       #ifdef ENABLE_ADD_HOMEING
       EEPROM_READ_VAR(i,add_homeing);
       #else // ENABLE_ADD_HOMEING
-      float z;
-      EEPROM_READ_VAR(i,z);
-      EEPROM_READ_VAR(i,z);
-      EEPROM_READ_VAR(i,z);
+      for(int ii = 0; ii < EXTRUDERS * 3; ii++) {
+         float z;
+         EEPROM_READ_VAR(i,z);
+      }
       #endif // ENABLE_ADD_HOMEING
       #if EXTRUDERS > 1
       EEPROM_READ_VAR(i,extruder_offset);
@@ -294,8 +291,8 @@ void Config_RetrieveSettings()
       EEPROM_READ_VAR(i,Kr);
       #ifdef PIDTEMP
       if(Kp <= 0) Kp = DEFAULT_Kp;
-      if(Ki <= 0) Ki = DEFAULT_Ki;
-      if(Kd <= 0) Kd = DEFAULT_Kd;
+      if(Ki <= 0) Ki = (DEFAULT_Ki*PID_dT);
+      if(Kd <= 0) Kd = (DEFAULT_Kd/PID_dT);
       #ifdef PID_FUNCTIONAL_RANGE
       if(Kr <= 0) Kr = PID_FUNCTIONAL_RANGE;
       #endif

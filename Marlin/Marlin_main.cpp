@@ -1783,6 +1783,9 @@ void process_commands()
         #ifdef PID_ADD_EXTRUSION_RATE
         if(code_seen('C')) Kc = code_value();
         #endif
+        #ifdef PID_FUNCTIONAL_RANGE
+        if(code_seen('R')) Kr = code_value();
+        #endif
         updatePID();
         SERIAL_PROTOCOL(MSG_OK);
         SERIAL_PROTOCOL(" p:");
@@ -1791,6 +1794,10 @@ void process_commands()
         SERIAL_PROTOCOL(Ki/PID_dT);
         SERIAL_PROTOCOL(" d:");
         SERIAL_PROTOCOL(Kd*PID_dT);
+        #ifdef PID_FUNCTIONAL_RANGE
+        SERIAL_PROTOCOL(" r:");
+        SERIAL_PROTOCOL(Kr);
+        #endif
         #ifdef PID_ADD_EXTRUSION_RATE
         SERIAL_PROTOCOL(" c:");
         SERIAL_PROTOCOL(Kc*PID_dT);
