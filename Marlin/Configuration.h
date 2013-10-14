@@ -159,9 +159,9 @@
     //    #define  DEFAULT_Kp 7.0
     //    #define  DEFAULT_Ki 0.1  
     //    #define  DEFAULT_Kd 12  
-    #define  DEFAULT_Kp 7.0
-    #define  DEFAULT_Ki 0.5  
-    #define  DEFAULT_Kd 12  
+    #define  DEFAULT_Kp 70.0
+    #define  DEFAULT_Ki 50.0  
+    #define  DEFAULT_Kd 120.0  
 
     // Mendel Parts V9 on 12V    
     //    #define  DEFAULT_Kp 63.0
@@ -442,10 +442,10 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // The compensation for speed 0mm/s is always 0mm and should not be listed.
 // For speeds higher than listed the compensation for the last entry is used.
 // Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
-#define C_COMPENSATION  {{0.1, 0.3}}, \
-                        {{0.5, 0.9}}, \
-                        {{1.0, 1.2}}, \
-                        {{3.0, 2.0}}
+//#define C_COMPENSATION  {{0.1, 0.3}}, \
+//                        {{0.5, 0.9}}, \
+//                        {{1.0, 1.2}}, \
+//                        {{3.0, 2.0}}
 
 // Minimum speed at which to add/remove compensation filament. For each move the 
 // firmware tries to compensate filament at the speed that assures that the max-E-jerk
