@@ -127,8 +127,10 @@
 //        it's automatically off for the active extruder. If used without S parameter prints current settings.
 //        If used without T paramter applies to all extruders.
 // M331 - Save current position coordinates (all axes, for active extruder).
-// M332 - Apply/restore saved coordinates. X<0|1>,Y<0|1>,Z<0|1>,E<0|1> - use 1 to filter the axis in (default), 0 to filter it out. 
+//        S<SLOT> - specifies memory slot # (0-based) to save into (default 0)
+// M332 - Apply/restore saved coordinates to the active extruder. X<0|1>,Y<0|1>,Z<0|1>,E<0|1> - use 1 to filter the axis in (default), 0 to filter it out. 
 //        F<speed> - make move to the restored position, if 'F' is not used the restored coordinates set as current position. 
+//        S<SLOT> - specifies memory slot # (0-based) to restore from (default 0)
 // M340 - Set filament compression (bowden drive) compensation table paramters. P<0-N> - table entry position, 
 //        S<speed> - E speed in mm/sec, C<compensation> - length (in mm) of the filament compressed in the guiding 
 //        tube when extruding at the given speed. The table entries should be ordered by E speed value. 
@@ -274,7 +276,7 @@ static uint8_t tmp_extruder;
 bool Stopped=false;
 
 bool pos_saved=false;
-float saved_position[NUM_AXIS];
+float saved_position[EXTRUDERS][NUM_AXIS];
 
 //===========================================================================
 //=============================ROUTINES=============================
@@ -743,7 +745,7 @@ static void axis_is_at_home(int axis) {
 
 static void homeaxis(int axis) {
 #define HOMEAXIS_DO(LETTER) \
-  ((LETTER##_MIN_PIN > -1 && home_dir(LETTER##_AXIS)==-1) || (LETTER##_MAX_PIN > -1 && home_dir(LETTER##_AXIS)==1))
+  ((LETTER##_MIN_PIN > -1 && home_dir(LETTER##_AXIS) < 0) || (LETTER##_MAX_PIN > -1 && home_dir(LETTER##_AXIS) > 0))
 
   if (axis==X_AXIS ? HOMEAXIS_DO(X) :
         axis==Y_AXIS ? HOMEAXIS_DO(Y) :
@@ -755,18 +757,18 @@ static void homeaxis(int axis) {
     feedrate = homing_feedrate[axis];
     plan_buffer_line(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], destination[E_AXIS], feedrate/60, active_extruder);
     st_synchronize();
-   
+
     current_position[axis] = 0;
     plan_set_position(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[E_AXIS]);
     destination[axis] = -home_retract_mm(axis) * home_dir(axis);
     plan_buffer_line(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], destination[E_AXIS], feedrate/60, active_extruder);
     st_synchronize();
-   
+
     destination[axis] = 2 * home_retract_mm(axis) * home_dir(axis);
     feedrate = homing_feedrate[axis]/2 ; 
     plan_buffer_line(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], destination[E_AXIS], feedrate/60, active_extruder);
     st_synchronize();
-   
+
     axis_is_at_home(axis);					
     destination[axis] = current_position[axis];
     feedrate = 0.0;
@@ -938,30 +940,11 @@ void process_commands()
       }
       #endif
       
-      if((home_all_axis) || (code_seen(axis_codes[X_AXIS]))) 
-      {
-      #ifdef DUAL_X_DRIVE && (EXTRUDERS > 1)
-        if(follow_me == 0) {
-          uint8_t current_extruder = ACTIVE_EXTRUDER;
-          tmp_extruder = (~current_extruder)|1;
-          set_active_extruder(tmp_extruder, tmp_extruder, false);
-          HOMEAXIS(X);
-          set_active_extruder(current_extruder, current_extruder, false);
-        }
-      #endif // DUAL_X_DRIVE && EXTRUDERS > 1
+      if((home_all_axis) || (code_seen(axis_codes[X_AXIS]))) {
         HOMEAXIS(X);
       }
       
       if((home_all_axis) || (code_seen(axis_codes[Y_AXIS]))) {
-      #ifdef DUAL_Y_DRIVE && (EXTRUDERS > 1)
-        if(follow_me == 0) {
-          uint8_t current_extruder = ACTIVE_EXTRUDER;
-          tmp_extruder = (~current_extruder)|1;
-          set_active_extruder(tmp_extruder, tmp_extruder, false);
-          HOMEAXIS(Y);
-          set_active_extruder(current_extruder, current_extruder, false);
-        }
-      #endif // DUAL_Y_DRIVE && EXTRUDERS > 1
         HOMEAXIS(Y);
       }
       
@@ -1651,7 +1634,7 @@ void process_commands()
     break;
     #ifdef ENABLE_ADD_HOMEING
     case 206: // M206 additional homeing offset
-      if(setTargetedHotend(205)) {
+      if(setTargetedHotend(206)) {
         break;
       }
       for(int8_t i=0; i < 3; i++) 
@@ -1891,13 +1874,22 @@ void process_commands()
 
     case 331: // M331 - save current position
     {
-      memcpy(saved_position, current_position, sizeof(saved_position));
+      int slot = 0;
+      if(code_seen('S')){
+        slot = code_value();
+      }
+      if(slot < 0 || slot >= NUM_POSITON_SLOTS) {
+        SERIAL_ECHOPAIR(MSG_INVALID_POS_SLOT, (int)NUM_POSITON_SLOTS);
+        break;
+      } 
+      memcpy(saved_position[slot], current_position, sizeof(*saved_position));
       SERIAL_ECHO_START;
       SERIAL_ECHO(MSG_SAVED_POS);
-      SERIAL_ECHOPAIR(" X:", saved_position[X_AXIS]);
-      SERIAL_ECHOPAIR(" Y:", saved_position[Y_AXIS]);
-      SERIAL_ECHOPAIR(" Z:", saved_position[Z_AXIS]);
-      SERIAL_ECHOPAIR(" E:", saved_position[E_AXIS]);
+      SERIAL_ECHOPAIR(" S", slot);
+      SERIAL_ECHOPAIR("<-X:", saved_position[slot][X_AXIS]);
+      SERIAL_ECHOPAIR(" Y:", saved_position[slot][Y_AXIS]);
+      SERIAL_ECHOPAIR(" Z:", saved_position[slot][Z_AXIS]);
+      SERIAL_ECHOPAIR(" E:", saved_position[slot][E_AXIS]);
       SERIAL_ECHOLN("");
     }
     break;
@@ -1905,14 +1897,24 @@ void process_commands()
     case 332: // M332 - restore position
     {
       bool make_move = false;
+      int slot = 0;
+      if(code_seen('S')){
+        slot = code_value();
+      }
+      if(slot < 0 || slot >= NUM_POSITON_SLOTS) {
+        SERIAL_ECHOPAIR(MSG_INVALID_POS_SLOT, (int)NUM_POSITON_SLOTS);
+        break;
+      } 
       SERIAL_ECHO_START;
       SERIAL_ECHO(MSG_RESTORING_POS);
+      SERIAL_ECHOPAIR(" S", slot);
+      SERIAL_ECHO("->");
       if(code_seen('F') && (next_feedrate = code_value()) > 0.0) {
         feedrate = next_feedrate;
         make_move = true;
       }
       for(int i=0; i< NUM_AXIS; i++) {
-        float coord = saved_position[i];
+        float coord = saved_position[slot][i];
         if(code_seen(axis_codes[i]) && code_value() == 0) {
           coord = current_position[i];
         }

@@ -98,11 +98,22 @@ static bool endstops_enabled = true;
 volatile long count_position[NUM_AXIS] = { 0, 0, 0, 0};
 volatile signed char count_direction[NUM_AXIS] = { 1, 1, 1, 1};
 
+#ifdef DUAL_X_DRIVE
+static bool min_x_endstop_ignore[EXTRUDERS] = { X0_IGNORE_MIN_ENDSTOP, 
+                                               X1_IGNORE_MIN_ENDSTOP };
+static bool max_x_endstop_ignore[EXTRUDERS] = { X0_IGNORE_MAX_ENDSTOP, 
+                                               X1_IGNORE_MAX_ENDSTOP };
+#endif // DUAL_X_DRIVE
+#ifdef DUAL_Y_DRIVE
+static bool min_y_endstop_ignore[EXTRUDERS] = { Y0_IGNORE_MIN_ENDSTOP, 
+                                               Y1_IGNORE_MIN_ENDSTOP };
+static bool max_y_endstop_ignore[EXTRUDERS] = { Y0_IGNORE_MAX_ENDSTOP, 
+                                               Y1_IGNORE_MAX_ENDSTOP };
+#endif // DUAL_Y_DRIVE
+
 //===========================================================================
 //=============================functions         ============================
 //===========================================================================
-
-#define CHECK_ENDSTOPS  if(endstops_enabled)
 
 // intRes = intIn1 * intIn2 >> 16
 // uses:
@@ -532,7 +543,11 @@ FORCE_INLINE void check_endstops()
   // Check limit switches
   if ((out_bits & (1<<X_AXIS)) != 0) {   // stepping along -X axis
     #if X_MIN_PIN > -1
-    CHECK_ENDSTOPS
+    #ifdef DUAL_X_DRIVE
+    if(endstops_enabled && !min_x_endstop_ignore[current_e])
+    #else // DUAL_X_DRIVE
+    if(endstops_enabled)
+    #endif // DUAL_X_DRIVE
     {
       bool x_min_endstop=(READ(X_MIN_PIN) != X_ENDSTOPS_INVERTING);
       if(x_min_endstop && old_x_min_endstop && (current_block->steps_x > 0)) {
@@ -546,7 +561,11 @@ FORCE_INLINE void check_endstops()
   }
   else { // +direction
     #if X_MAX_PIN > -1
-    CHECK_ENDSTOPS 
+    #ifdef DUAL_X_DRIVE
+    if(endstops_enabled && !max_x_endstop_ignore[current_e])
+    #else // DUAL_X_DRIVE
+    if(endstops_enabled)
+    #endif // DUAL_X_DRIVE
     {
       bool x_max_endstop=(READ(X_MAX_PIN) != X_ENDSTOPS_INVERTING);
       if(x_max_endstop && old_x_max_endstop && (current_block->steps_x > 0)){
@@ -561,7 +580,11 @@ FORCE_INLINE void check_endstops()
 
   if ((out_bits & (1<<Y_AXIS)) != 0) {   // -direction
     #if Y_MIN_PIN > -1
-    CHECK_ENDSTOPS
+    #ifdef DUAL_Y_DRIVE
+    if(endstops_enabled && !min_y_endstop_ignore[current_e])
+    #else // DUAL_Y_DRIVE
+    if(endstops_enabled)
+    #endif // DUAL_Y_DRIVE
     {
       bool y_min_endstop=(READ(Y_MIN_PIN) != Y_ENDSTOPS_INVERTING);
       if(y_min_endstop && old_y_min_endstop && (current_block->steps_y > 0)) {
@@ -575,7 +598,11 @@ FORCE_INLINE void check_endstops()
   }
   else { // +direction
     #if Y_MAX_PIN > -1
-    CHECK_ENDSTOPS
+    #ifdef DUAL_Y_DRIVE
+    if(endstops_enabled && !max_y_endstop_ignore[current_e])
+    #else // DUAL_Y_DRIVE
+    if(endstops_enabled)
+    #endif // DUAL_Y_DRIVE
     {
       bool y_max_endstop=(READ(Y_MAX_PIN) != Y_ENDSTOPS_INVERTING);
       if(y_max_endstop && old_y_max_endstop && (current_block->steps_y > 0)){
@@ -590,7 +617,7 @@ FORCE_INLINE void check_endstops()
 
   if ((out_bits & (1<<Z_AXIS)) != 0) {   // -direction
     #if Z_MIN_PIN > -1
-    CHECK_ENDSTOPS
+    if(endstops_enabled)
     {
       bool z_min_endstop=(READ(Z_MIN_PIN) != Z_ENDSTOPS_INVERTING);
       if(z_min_endstop && old_z_min_endstop && (current_block->steps_z > 0)) {
@@ -604,7 +631,7 @@ FORCE_INLINE void check_endstops()
   }
   else { // +direction
     #if Z_MAX_PIN > -1
-    CHECK_ENDSTOPS
+    if(endstops_enabled)
     {
       bool z_max_endstop=(READ(Z_MAX_PIN) != Z_ENDSTOPS_INVERTING);
       if(z_max_endstop && old_z_max_endstop && (current_block->steps_z > 0)) {

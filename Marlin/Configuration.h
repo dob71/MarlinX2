@@ -301,8 +301,8 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // Travel limits after homing (use defines for dual drives if enabled for axes)
 // For dual drive on an axis use numbered variations of the define and comment out the unnumbered.
 //#define X_MAX_POS 250
-#define X0_MAX_POS 250
-#define X1_MAX_POS 295
+#define X0_MAX_POS 243.55
+#define X1_MAX_POS 288.55
 //#define X_MIN_POS 0
 #define X0_MIN_POS 0
 #define X1_MIN_POS 45
@@ -312,7 +312,7 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 #define Y_MIN_POS 0
 //#define Y0_MIN_POS 0
 //#define Y1_MIN_POS 0
-#define Z_MAX_POS 150
+#define Z_MAX_POS 135
 #define Z_MIN_POS 0
 
 // What's the max move distance along an axis? For dual drievs use the greatest.
@@ -331,7 +331,7 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 //Manual homing switch locations:
 //#define MANUAL_X_HOME_POS 0
 //#define MANUAL_X0_HOME_POS 0
-//#define MANUAL_X1_HOME_POS 295
+//#define MANUAL_X1_HOME_POS 290
 //#define MANUAL_Y_HOME_POS 0
 //#define MANUAL_Y0_HOME_POS 0
 //#define MANUAL_Y1_HOME_POS 200
@@ -354,7 +354,7 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 //       for that axis. On that axis the positioning is controlled by the the coordinates of the homing 
 //       switches (i.e. *_MAX_POS/*_MIN_POS or MANUAL_*_HOME_POS if MANUAL_HOME_POSITIONS if defined).
 #define EXTRUDER_OFFSET_X {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the X axis
-#define EXTRUDER_OFFSET_Y {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the Y axis
+#define EXTRUDER_OFFSET_Y {0.0, -0.05} // (in mm) per extruder, offset of the extruder on the Y axis
 
 // default settings 
 #define DEFAULT_AXIS_STEPS_PER_UNIT   {80.0000, 80.0000, 2284.7651, 661.78, 661.78} // X,Y,Z,E0... SAE Prusa w/ Wade extruder

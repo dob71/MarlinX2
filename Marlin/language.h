@@ -191,6 +191,7 @@
 	#define MSG_CCOMP_TABLE "Compensation table:"
 	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
 	#define MSG_TEMPERATURE_TGT "Target temperature "
+	#define MSG_INVALID_POS_SLOT "Invalid slot, total slots: "
 
 #endif
 
@@ -353,6 +354,7 @@
 	#define MSG_CCOMP_TABLE "Compensation table:"
 	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
 	#define MSG_TEMPERATURE_TGT "Target temperature "
+	#define MSG_INVALID_POS_SLOT "Invalid slot, total slots: "
 
 #endif
 
@@ -519,6 +521,7 @@
 #define MSG_CCOMP_TABLE "Compensation table:"
 #define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
 #define MSG_TEMPERATURE_TGT "Target temperature "
+#define MSG_INVALID_POS_SLOT "Invalid slot, total slots: "
 
 #endif
 
@@ -683,6 +686,7 @@
 	#define MSG_CCOMP_TABLE "Compensation table:"
 	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
 	#define MSG_TEMPERATURE_TGT "Target temperature "
+	#define MSG_INVALID_POS_SLOT "Invalid slot, total slots: "
 
 #endif
 
@@ -846,6 +850,7 @@
 #define MSG_CCOMP_TABLE "Compensation table:"
 #define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
 #define MSG_TEMPERATURE_TGT "Target temperature "
+#define MSG_INVALID_POS_SLOT "Invalid slot, total slots: "
 
 #endif
 
@@ -1002,6 +1007,7 @@
 #define MSG_CCOMP_TABLE                "Compensation table:"
 #define MSG_TEMP_ADJ_ERROR             "Temperature already adjusted, restore first"
 #define MSG_TEMPERATURE_TGT            "Target temperature "
+#define MSG_INVALID_POS_SLOT           "Invalid slot, total slots: "
 
 #endif
 
@@ -1164,6 +1170,7 @@
 	#define MSG_CCOMP_TABLE          "Compensation table:"
 	#define MSG_TEMP_ADJ_ERROR       "Temperature already adjusted, restore first"
 	#define MSG_TEMPERATURE_TGT      "Target temperature "
+	#define MSG_INVALID_POS_SLOT     "Invalid slot, total slots: "
 
 #endif
 
@@ -1332,6 +1339,7 @@
 	#define MSG_CCOMP_TABLE "Compensation table:"
 	#define MSG_TEMP_ADJ_ERROR "Temperature already adjusted, restore first"
 	#define MSG_TEMPERATURE_TGT "Target temperature "
+	#define MSG_INVALID_POS_SLOT "Invalid slot, total slots: "
 
 #endif
 

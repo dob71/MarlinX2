@@ -95,13 +95,21 @@
   #ifdef DUAL_X_DRIVE
     #if X0_HOME_DIR == -1
       #define X0_HOME_POS X0_MIN_POS
+      #define X0_IGNORE_MAX_ENDSTOP true
+      #define X0_IGNORE_MIN_ENDSTOP false
     #else    
       #define X0_HOME_POS X0_MAX_POS
+      #define X0_IGNORE_MAX_ENDSTOP false
+      #define X0_IGNORE_MIN_ENDSTOP true
     #endif //X0_HOME_DIR == -1
     #if X1_HOME_DIR == -1
       #define X1_HOME_POS X1_MIN_POS
+      #define X1_IGNORE_MAX_ENDSTOP true
+      #define X1_IGNORE_MIN_ENDSTOP false
     #else    
       #define X1_HOME_POS X1_MAX_POS
+      #define X1_IGNORE_MAX_ENDSTOP false
+      #define X1_IGNORE_MIN_ENDSTOP true
     #endif //X1_HOME_DIR == -1
   #else
     #if X_HOME_DIR == -1
@@ -115,13 +123,21 @@
   #ifdef DUAL_Y_DRIVE
     #if Y0_HOME_DIR == -1
       #define Y0_HOME_POS Y0_MIN_POS
+      #define Y0_IGNORE_MAX_ENDSTOP true
+      #define Y0_IGNORE_MIN_ENDSTOP false
     #else    
       #define Y0_HOME_POS Y0_MAX_POS
+      #define Y0_IGNORE_MAX_ENDSTOP false
+      #define Y0_IGNORE_MIN_ENDSTOP true
     #endif //Y0_HOME_DIR == -1
     #if Y1_HOME_DIR == -1
       #define Y1_HOME_POS Y1_MIN_POS
+      #define Y1_IGNORE_MAX_ENDSTOP true
+      #define Y1_IGNORE_MIN_ENDSTOP false
     #else    
       #define Y1_HOME_POS Y1_MAX_POS
+      #define Y1_IGNORE_MAX_ENDSTOP false
+      #define Y1_IGNORE_MIN_ENDSTOP true
     #endif //Y1_HOME_DIR == -1
   #else
     #if Y_HOME_DIR == -1
@@ -237,6 +253,10 @@
 // Arc interpretation settings:
 #define MM_PER_ARC_SEGMENT 1
 #define N_ARC_CORRECTION 25
+
+// Defines the number of memory slots for saving/restoring position (M331/M332)
+// The valuse should not be less than 1
+#define NUM_POSITON_SLOTS 4
 
 // Everything with less than this number of steps will be ignored as move and joined with the next movement
 const unsigned int dropsegments = 5; 
