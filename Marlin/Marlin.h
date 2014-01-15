@@ -256,7 +256,7 @@ extern unsigned long stoptime;
   #define FAN_DEBUG            0x0002
   #define C_COMPENSATION_DEBUG 0x0004
   #define C_COMP_STEPS_DEBUG   0x0008
-  #define C_ACCEL_STEPS_DEBUG  0x0010
+  #define ACCEL_STEPS_DEBUG    0x0010
   // These are debug flags that can be used with M504 P<DBG_PRINT_FLAGS> 
   // for printing out information by the M504 command itself.
   #define DEBUG_PRINT_PLAN     0x0001

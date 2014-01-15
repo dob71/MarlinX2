@@ -69,6 +69,7 @@
 // M1   - Same as M0
 // M104 - Set extruder target temp (use T# to explicitly specify extruder, 
 //        H<deg> and L<deg> can be used to increase/decrease the target temperature)
+//        Note: increase/decrease is allowed only once unless opposite operation is performed before more attempts are made.
 // M105 - Read current temp (use A1 to read for all extruders, T# for specific one)
 // M106 - Fan on (use T# for dual drive machines to tun the fan on/off for specific extruder, A1 for all)
 // M107 - Fan off (use T# for dual drive machines to tun the fan on/off for specific extruder, A1 for all)
@@ -109,8 +110,8 @@
 // M201 - Set max acceleration in units/s^2 for print moves (M201 X1000 Y1000)
 // M202 - Set max acceleration in units/s^2 for travel moves (M202 X1000 Y1000) Unused in Marlin!!
 // M203 - Set maximum feedrate that your machine can sustain (M203 X200 Y200 Z300 E10000) in mm/sec
-// M204 - Set default acceleration: S normal moves T filament only moves (M204 S3000 T7000) im mm/sec^2  also sets minimum segment time in ms (B20000) to prevent buffer underruns and M20 minimum feedrate
-// M205 - Advanced settings:  minimum travel speed S=while printing V=travel only,  B=minimum segment time X= maximum xy jerk, Z=maximum Z jerk, E=maximum E jerk (for retracts)
+// M204 - Set default acceleration: S normal moves R filament only moves (M204 S3000 R7000) im mm/sec^2  also sets minimum segment time in ms (B20000) to prevent buffer underruns and M20 minimum feedrate, T sets the extruder R applies to
+// M205 - Advanced settings:  minimum travel speed S=while printing V=travel only,  B=minimum segment time X= maximum xy jerk, Z=maximum Z jerk, E=maximum E jerk (for retracts), T=extruder E applies to
 // M206 - set additional homeing offset
 // M207 - set retract length S[positive mm] F[feedrate mm/sec] Z[additional zlift/hop]
 // M208 - set recover=unretract length S[positive mm surplus to the M207 S*] F[feedrate mm/sec]
@@ -119,7 +120,7 @@
 // M220 - S<factor in percent>- set speed factor override percentage
 // M221 - S<factor in percent>- set extrude factor override percentage
 // M240 - Trigger a camera to take a photograph
-// M301 - Set PID parameters P I and D
+// M301 - Set PID parameters P I D and R (PID active range)
 // M302 - Allow cold extrudes
 // M303 - PID relay autotune S<temperature> sets the target temperature. (default target temperature = 150C)
 // M304 - Set bed PID parameters P I and D
@@ -177,10 +178,10 @@ int extrudemultiply=100; //100->1 200->2
 float current_position[NUM_AXIS];
 float e_last_position[EXTRUDERS];
 #ifdef DUAL_X_DRIVE
-  float x_last_position[EXTRUDERS];
+  float x_last_position[EXTRUDERS] = {X0_HOME_POS, X1_HOME_POS};
 #endif
 #ifdef DUAL_Y_DRIVE
-  float y_last_position[EXTRUDERS];
+  float y_last_position[EXTRUDERS] = {Y0_HOME_POS, Y1_HOME_POS};
 #endif
 #ifdef ENABLE_ADD_HOMEING
 float add_homeing[EXTRUDERS][3];
@@ -1519,6 +1520,9 @@ void process_commands()
           }
         }
       }
+      st_synchronize();
+      // This recalculates position in steps in case user has changed steps/unit
+      plan_set_position(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[E_AXIS]);
       break;
     case 115: // M115
       SERIAL_PROTOCOLPGM(MSG_M115_REPORT);
@@ -1612,7 +1616,7 @@ void process_commands()
         }
       }
       break;
-    case 204: // M204 acclereration S normal moves T filmanent only moves
+    case 204: // M204 acclereration S normal moves R filmanent only moves
       if(setTargetedHotend(204)) {
         break;
       }

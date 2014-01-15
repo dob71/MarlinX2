@@ -391,7 +391,7 @@ FORCE_INLINE void trapezoid_generator_reset() {
   us_per_advance_step = 1000000 / advance_step_rate;
   #endif // C_COMPENSATION
   #ifdef ENABLE_DEBUG
-  if((debug_flags & C_ACCEL_STEPS_DEBUG) != 0) {
+  if((debug_flags & ACCEL_STEPS_DEBUG) != 0) {
     SERIAL_ECHO_START;
     SERIAL_ECHOPAIR(" SC:", current_block->step_event_count);
     SERIAL_ECHOPAIR(" AU:", current_block->accelerate_until);
