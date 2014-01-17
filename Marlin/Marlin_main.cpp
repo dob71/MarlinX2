@@ -269,6 +269,12 @@ static unsigned long previous_millis_cmd = 0;
 static unsigned long max_inactive_time = 0;
 static unsigned long stepper_inactive_time = DEFAULT_STEPPER_DEACTIVE_TIME*1000l;
 
+// Flag indicating that machine is printing (determined by checking how many 
+// movements are queued by planner). Updated on the new command input.
+bool machine_printing = false;
+// Flag controlling printing of individual echo strings
+bool do_print = true;
+
 unsigned long starttime=0;
 unsigned long stoptime=0;
 
@@ -277,7 +283,7 @@ static uint8_t tmp_extruder;
 bool Stopped=false;
 
 bool pos_saved=false;
-float saved_position[EXTRUDERS][NUM_AXIS];
+float saved_position[NUM_POSITON_SLOTS][NUM_AXIS];
 
 //===========================================================================
 //=============================ROUTINES=============================
@@ -824,6 +830,10 @@ void process_commands()
 {
   unsigned long codenum; //throw away variable
   char *starpos = NULL;
+  
+#ifdef NO_ECHO_WHILE_PRINTING
+  machine_printing = (num_blocks_queued() >= MACHINE_PRINTING_BLOCKS);
+#endif // NO_ECHO_WHILE_PRINTING
 
   if(code_seen('G'))
   {
@@ -2254,7 +2264,7 @@ void process_commands()
       #endif
       SERIAL_ECHO_START;
       SERIAL_ECHO(MSG_ACTIVE_EXTRUDER);
-      SERIAL_PROTOCOLLN(((int)active_extruder));
+      SERIAL_ECHOLN(((int)active_extruder));
     }
   }
 

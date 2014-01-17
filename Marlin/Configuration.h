@@ -301,12 +301,12 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // Travel limits after homing (use defines for dual drives if enabled for axes)
 // For dual drive on an axis use numbered variations of the define and comment out the unnumbered.
 //#define X_MAX_POS 250
-#define X0_MAX_POS 242.45
-#define X1_MAX_POS 287.45
+#define X0_MAX_POS 207.45
+#define X1_MAX_POS 252.45
 //#define X_MIN_POS 0
-#define X0_MIN_POS 0
-#define X1_MIN_POS 45
-#define Y_MAX_POS 200
+#define X0_MIN_POS -35
+#define X1_MIN_POS 10
+#define Y_MAX_POS 198
 //#define Y0_MAX_POS 200
 //#define Y1_MAX_POS 200
 #define Y_MIN_POS 0

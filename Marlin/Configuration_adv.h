@@ -355,6 +355,14 @@ const unsigned int dropsegments = 5;
 // command. Look up the available flags in Marlin.h file.
 #define ENABLE_DEBUG
 
+// Uncomment if you see communication errors especially when 
+// a lot of output comes from printer. This define will disable 
+// printing of all the "echo" (i.e. human readable) output from the 
+// machine while it is printing (detected by checking if multiple 
+// moves are queued). There also is a debug flag (M504 S1) that can 
+// be used to re-enable the output during printing without re-compilation.
+#define NO_ECHO_WHILE_PRINTING
+
 //===========================================================================
 //=============================  Define Defines  ============================
 //===========================================================================

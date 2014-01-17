@@ -199,7 +199,9 @@ What changes came with the Marlin X2 v1.1.0:
   multiple hotends independently on X or Y axis)
 - M322 the "follw me" mode command
 - M331/M332 (position save/restore commands)
-- M340 (compression compensation) command
+- M340 (filament compression compensation) command
+- Option to disable chit-chat (human readable "echo") printouts during 
+  printing (see NO_ECHO_WHILE_PRINTING in Configuration_adv.h)
 - All setup commands take 'T#' paramter for specifying extruder 
   the command applies to. For example:
     M92 T0 E661.78
@@ -221,7 +223,7 @@ What changes came with the Marlin X2 v1.1.0:
   only once until opposite option is used. However, if desired, it is 
   possible to invoke the opposite option with zero degrees change and 
   further bump the temperature the same direction.
-- M504 command can be used to set firware debug flags enabling debug 
+- M504 command can be used to set firmware debug flags enabling debug 
   output if ENABLE_DEBUG is defined (see Configuration_adv.h).
   Option 'S' sets the flags, option 'P' is for immediate debug actions.
 - M301 option R sets the range off of the target temperature where PID 

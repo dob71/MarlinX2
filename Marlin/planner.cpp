@@ -805,7 +805,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   float inverse_millimeters = 1.0/block->millimeters;  // Inverse millimeters to remove multiple divides 
   // Calculate speed in mm/second for each axis. No divide by zero due to previous checks.
   float inverse_second = feed_rate * inverse_millimeters;
-  int moves_queued=(block_buffer_head-block_buffer_tail + BLOCK_BUFFER_SIZE) & (BLOCK_BUFFER_SIZE - 1);
+  int moves_queued = num_blocks_queued();
 
 #ifdef SLOWDOWN
   // Slow down only moves that are not retracting/returning and not moving Z
