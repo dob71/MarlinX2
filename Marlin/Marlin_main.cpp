@@ -1852,6 +1852,7 @@ void process_commands()
         mask = 1<<tmp_extruder;
       }
       if(code_seen('S')) {
+        st_synchronize();
         if(code_value() == 0) {
           follow_me &= ~mask;
         } else {
@@ -1861,11 +1862,13 @@ void process_commands()
       follow_me &= ~(1<<ACTIVE_EXTRUDER);
       // enable/disable following active hotend temperature settings 
       if(code_seen('H')) {
+        st_synchronize();
         follow_me_heater = (code_value() != 0);
       }
       #ifdef PER_EXTRUDER_FANS
       // enable/disable following active hotend fan speed
       if(code_seen('F')) {
+        st_synchronize();
         follow_me_fan = (code_value() != 0);
       }
       #endif // PER_EXTRUDER_FANS
