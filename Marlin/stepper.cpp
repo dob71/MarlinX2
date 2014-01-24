@@ -432,8 +432,14 @@ FORCE_INLINE void set_directions()
       #if !defined(DUAL_X_DRIVE) || EXTRUDERS==1
         WRITE(X_DIR_PIN, INVERT_X_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, INVERT_X0_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, INVERT_X1_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) { 
+          if(!(follow_mir & 1)) { WRITE(X0_DIR_PIN, INVERT_X0_DIR); }
+          else                  { WRITE(X0_DIR_PIN, !INVERT_X0_DIR); }
+        }
+        if(current_e==1 || (follow_me & 2)!=0) { 
+          if(!(follow_mir & 2)) { WRITE(X1_DIR_PIN, INVERT_X1_DIR); }
+          else                  { WRITE(X1_DIR_PIN, !INVERT_X1_DIR); }
+        }
       #endif
     #endif
     count_direction[X_AXIS]=-1;
@@ -443,8 +449,14 @@ FORCE_INLINE void set_directions()
       #if !defined(DUAL_X_DRIVE) || EXTRUDERS==1
         WRITE(X_DIR_PIN, !INVERT_X_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, !INVERT_X0_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, !INVERT_X1_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) { 
+          if(!(follow_mir & 1)) { WRITE(X0_DIR_PIN, !INVERT_X0_DIR); }
+          else                  { WRITE(X0_DIR_PIN, INVERT_X0_DIR); }
+        }
+        if(current_e==1 || (follow_me & 2)!=0) { 
+          if(!(follow_mir & 2)) { WRITE(X1_DIR_PIN, !INVERT_X1_DIR); }
+          else                  { WRITE(X1_DIR_PIN, INVERT_X1_DIR); }
+        }
       #endif
     #endif
     count_direction[X_AXIS]=1;
@@ -455,8 +467,14 @@ FORCE_INLINE void set_directions()
       #if !defined(DUAL_Y_DRIVE) || EXTRUDERS==1
         WRITE(Y_DIR_PIN, INVERT_Y_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(Y0_DIR_PIN, INVERT_Y0_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(Y1_DIR_PIN, INVERT_Y1_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) {
+          if(!(follow_mir & 1)) { WRITE(Y0_DIR_PIN, INVERT_Y0_DIR); }
+          else                  { WRITE(Y0_DIR_PIN, !INVERT_Y0_DIR); }
+        }
+        if(current_e==1 || (follow_me & 2)!=0) {
+          if(!(follow_mir & 2)) { WRITE(Y1_DIR_PIN, INVERT_Y1_DIR); }
+          else                  { WRITE(Y1_DIR_PIN, !INVERT_Y1_DIR); }
+        }
       #endif
     #endif
     count_direction[Y_AXIS]=-1;
@@ -466,8 +484,14 @@ FORCE_INLINE void set_directions()
       #if !defined(DUAL_Y_DRIVE) || EXTRUDERS==1
         WRITE(Y_DIR_PIN, !INVERT_Y_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(Y0_DIR_PIN, !INVERT_Y0_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(Y1_DIR_PIN, !INVERT_Y1_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) {
+          if(!(follow_mir & 1)) { WRITE(Y0_DIR_PIN, !INVERT_Y0_DIR); }
+          else                  { WRITE(Y0_DIR_PIN, INVERT_Y0_DIR); };
+        }
+        if(current_e==1 || (follow_me & 2)!=0) {
+          if(!(follow_mir & 2)) { WRITE(Y1_DIR_PIN, !INVERT_Y1_DIR); }
+          else                  { WRITE(Y1_DIR_PIN, INVERT_Y1_DIR); }
+        }
       #endif
     #endif
     count_direction[Y_AXIS]=1;

@@ -187,7 +187,12 @@ moves of the active extruder (for simultaneous printing from multiple
 extruders). The command also has H and F options for turning on/off 
 follow me heater (H) and follow-me fan (F) modes. When the modes are on the 
 temperature and fan setting changes of the active extruder are applied 
-to the followers too.
+to the followers too. The option R allows to turn on or off the "reverse" 
+mode for the follwer's extruder on dual X or Y drive machines. That mode 
+allows simultaneous printing of mirrored copy of the object. Those are 
+often needed when printing printer parts (for example left and right 
+extruder parts) or halfs of some single object that have to be glued 
+together.
 
 Note that the firmware retract feature (FWRETRACT define) is not 
 multiple extruder compatible.

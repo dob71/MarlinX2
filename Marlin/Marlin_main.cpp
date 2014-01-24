@@ -231,6 +231,9 @@ float extruder_offset[2][EXTRUDERS] = {
   #ifdef PER_EXTRUDER_FANS
   bool follow_me_fan; // Follw the fan speed changes
   #endif // PER_EXTRUDER_FANS
+  #if defined(DUAL_X_DRIVE) || defined(DUAL_Y_DRIVE)
+  uint8_t follow_mir = 0; // Bitmask of the follow me mirror mode state
+  #endif
 #endif
 
 const char errormagic[] PROGMEM ="Error:";
@@ -1860,6 +1863,18 @@ void process_commands()
         }
       }
       follow_me &= ~(1<<ACTIVE_EXTRUDER);
+      // Bitmask of the follow me mirror mode state
+      #if defined(DUAL_X_DRIVE) || defined(DUAL_Y_DRIVE)
+      if(code_seen('R')) {
+        st_synchronize();
+        if(code_value() == 0) {
+          follow_mir &= ~mask;
+        } else {
+          follow_mir |= mask;
+        }
+      }
+      follow_mir &= follow_me;
+      #endif // defined(DUAL_X_DRIVE) || defined(DUAL_Y_DRIVE)
       // enable/disable following active hotend temperature settings 
       if(code_seen('H')) {
         st_synchronize();
@@ -1877,8 +1892,14 @@ void process_commands()
       SERIAL_ECHOPGM(MSG_FOLLOWME_MODE);
       for(tmp_extruder = 0; tmp_extruder < EXTRUDERS; tmp_extruder++) 
       {
-         SERIAL_ECHOPAIR(" T", (int)tmp_extruder);
-         SERIAL_ECHOPAIR(":", (follow_me & (1<<tmp_extruder)) ? "on" : "off");
+        SERIAL_ECHOPAIR(" T", (int)tmp_extruder);
+        SERIAL_ECHOPAIR(":", (follow_me & (1<<tmp_extruder)) ? "on" : "off");
+        #if defined(DUAL_X_DRIVE) || defined(DUAL_Y_DRIVE)
+        if(follow_me & follow_mir & (1<<tmp_extruder))
+        {
+          SERIAL_ECHO("/mir");
+        }
+        #endif // defined(DUAL_X_DRIVE) || defined(DUAL_Y_DRIVE)
       }
       SERIAL_ECHOPAIR(" H:", follow_me_heater ? "on" : "off");
       #ifdef PER_EXTRUDER_FANS

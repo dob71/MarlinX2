@@ -261,6 +261,9 @@ extern unsigned char fanSpeed[EXTRUDERS];
   #ifdef PER_EXTRUDER_FANS
     extern bool follow_me_fan; // Follw the fan speed changes
   #endif // PER_EXTRUDER_FANS
+  #if defined(DUAL_X_DRIVE) || defined(DUAL_Y_DRIVE)
+    extern uint8_t follow_mir; // Bitmask of the follow me mirror mode state
+  #endif
 #endif // EXTRUDERS > 1
 
 extern unsigned long starttime;
