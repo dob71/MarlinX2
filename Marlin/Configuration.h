@@ -47,7 +47,7 @@
 
 #ifndef MOTHERBOARD
 #define MOTHERBOARD 34
-#define REPRAPX2 // SUBFLAVOUR
+#define REPRAPX2
 #endif
 
 //// The following define selects which power supply you have. Please choose the one that matches your setup
@@ -57,7 +57,7 @@
 #define POWER_SUPPLY 1
 
 // This defines the number of extruders
-#define EXTRUDERS 1
+#define EXTRUDERS 2
 
 //===========================================================================
 //=============================Thermal Settings  ============================
@@ -87,7 +87,7 @@
 // 55 is 100k thermistor - ATC Semitec 104GT-2 (Used in ParCan) (1k pullup)
 
 #define TEMP_SENSOR_0 1
-#define TEMP_SENSOR_1 0
+#define TEMP_SENSOR_1 1
 #define TEMP_SENSOR_2 0
 #define TEMP_SENSOR_BED 1
 
@@ -353,19 +353,19 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // Note: the extruder offset for multiple extruder machines with dual drive on an axis should be set to 0 
 //       for that axis. On that axis the positioning is controlled by the the coordinates of the homing 
 //       switches (i.e. *_MAX_POS/*_MIN_POS or MANUAL_*_HOME_POS if MANUAL_HOME_POSITIONS if defined).
-//#define EXTRUDER_OFFSET_X {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the X axis
-//#define EXTRUDER_OFFSET_Y {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the Y axis
+#define EXTRUDER_OFFSET_X {0.0, 20.0} // (in mm) per extruder, offset of the extruder on the X axis
+#define EXTRUDER_OFFSET_Y {0.0, 0.0} // (in mm) per extruder, offset of the extruder on the Y axis
 
 // default settings 
-#define DEFAULT_AXIS_STEPS_PER_UNIT   {80.3232, 80.8900, 2284.7651, 757.2218} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
-#define DEFAULT_MAX_FEEDRATE          {230, 230, 7, 23} // X,Y,Z,E0...(mm/sec)    
-#define DEFAULT_MAX_ACCELERATION      {5000, 5000, 100, 5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
-#define DEFAULT_RETRACT_ACCELERATION  {60000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
+#define DEFAULT_AXIS_STEPS_PER_UNIT   {80.0000, 80.0000, 2284.7651, 757.2218, 757.2218} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
+#define DEFAULT_MAX_FEEDRATE          {230, 230, 7, 23, 23} // X,Y,Z,E0...(mm/sec)    
+#define DEFAULT_MAX_ACCELERATION      {5000, 5000, 100, 5000, 5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
+#define DEFAULT_RETRACT_ACCELERATION  {60000, 60000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
 #define DEFAULT_ACCELERATION          3000    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
 
 #define DEFAULT_XYJERK                2.0     // (mm/sec)
 #define DEFAULT_ZJERK                 0.4     // (mm/sec)
-#define DEFAULT_EJERK                 {17}    // E0... (mm/sec) per extruder, max initial speed for retract moves
+#define DEFAULT_EJERK                 {17, 17}// E0... (mm/sec) per extruder, max initial speed for retract moves
 
 //===========================================================================
 //=============================Additional Features===========================
