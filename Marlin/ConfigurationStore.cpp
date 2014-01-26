@@ -213,6 +213,19 @@ void Config_PrintSettings()
     }
     #endif  // ENABLE_ADD_HOMEING
     
+#if EXTRUDERS > 1
+    SERIAL_ECHO_START;
+    SERIAL_ECHOLNPGM("Extruder offset:");
+    for(i = 0; i < EXTRUDERS; i++)
+    {
+    SERIAL_ECHO_START;
+    SERIAL_ECHOPAIR("   M218 T",i); 
+    SERIAL_ECHOPAIR(" X", extruder_offset[X_AXIS][i]); 
+    SERIAL_ECHOPAIR(" Y", extruder_offset[Y_AXIS][i]);
+    SERIAL_ECHOLN("");
+    }
+#endif // EXTRUDERS > 1
+
 #ifdef PIDTEMP
     SERIAL_ECHO_START;
     SERIAL_ECHOLNPGM("PID settings:");

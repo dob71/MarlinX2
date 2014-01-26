@@ -149,5 +149,12 @@ FORCE_INLINE bool is_last_block()
   return false;
 }
 
+// Returns number of blocks queued
+FORCE_INLINE int num_blocks_queued()
+{
+  return (block_buffer_head-block_buffer_tail + BLOCK_BUFFER_SIZE) & 
+         (BLOCK_BUFFER_SIZE - 1);
+}
+
 void allow_cold_extrudes(bool allow);
 #endif

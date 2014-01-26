@@ -98,11 +98,22 @@ static bool endstops_enabled = true;
 volatile long count_position[NUM_AXIS] = { 0, 0, 0, 0};
 volatile signed char count_direction[NUM_AXIS] = { 1, 1, 1, 1};
 
+#ifdef DUAL_X_DRIVE
+static bool min_x_endstop_ignore[EXTRUDERS] = { X0_IGNORE_MIN_ENDSTOP, 
+                                               X1_IGNORE_MIN_ENDSTOP };
+static bool max_x_endstop_ignore[EXTRUDERS] = { X0_IGNORE_MAX_ENDSTOP, 
+                                               X1_IGNORE_MAX_ENDSTOP };
+#endif // DUAL_X_DRIVE
+#ifdef DUAL_Y_DRIVE
+static bool min_y_endstop_ignore[EXTRUDERS] = { Y0_IGNORE_MIN_ENDSTOP, 
+                                               Y1_IGNORE_MIN_ENDSTOP };
+static bool max_y_endstop_ignore[EXTRUDERS] = { Y0_IGNORE_MAX_ENDSTOP, 
+                                               Y1_IGNORE_MAX_ENDSTOP };
+#endif // DUAL_Y_DRIVE
+
 //===========================================================================
 //=============================functions         ============================
 //===========================================================================
-
-#define CHECK_ENDSTOPS  if(endstops_enabled)
 
 // intRes = intIn1 * intIn2 >> 16
 // uses:
@@ -380,7 +391,7 @@ FORCE_INLINE void trapezoid_generator_reset() {
   us_per_advance_step = 1000000 / advance_step_rate;
   #endif // C_COMPENSATION
   #ifdef ENABLE_DEBUG
-  if((debug_flags & C_ACCEL_STEPS_DEBUG) != 0) {
+  if((debug_flags & ACCEL_STEPS_DEBUG) != 0) {
     SERIAL_ECHO_START;
     SERIAL_ECHOPAIR(" SC:", current_block->step_event_count);
     SERIAL_ECHOPAIR(" AU:", current_block->accelerate_until);
@@ -421,8 +432,14 @@ FORCE_INLINE void set_directions()
       #if !defined(DUAL_X_DRIVE) || EXTRUDERS==1
         WRITE(X_DIR_PIN, INVERT_X_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, INVERT_X0_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, INVERT_X1_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) { 
+          if(!(follow_mir & 1)) { WRITE(X0_DIR_PIN, INVERT_X0_DIR); }
+          else                  { WRITE(X0_DIR_PIN, !INVERT_X0_DIR); }
+        }
+        if(current_e==1 || (follow_me & 2)!=0) { 
+          if(!(follow_mir & 2)) { WRITE(X1_DIR_PIN, INVERT_X1_DIR); }
+          else                  { WRITE(X1_DIR_PIN, !INVERT_X1_DIR); }
+        }
       #endif
     #endif
     count_direction[X_AXIS]=-1;
@@ -432,8 +449,14 @@ FORCE_INLINE void set_directions()
       #if !defined(DUAL_X_DRIVE) || EXTRUDERS==1
         WRITE(X_DIR_PIN, !INVERT_X_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(X0_DIR_PIN, !INVERT_X0_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(X1_DIR_PIN, !INVERT_X1_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) { 
+          if(!(follow_mir & 1)) { WRITE(X0_DIR_PIN, !INVERT_X0_DIR); }
+          else                  { WRITE(X0_DIR_PIN, INVERT_X0_DIR); }
+        }
+        if(current_e==1 || (follow_me & 2)!=0) { 
+          if(!(follow_mir & 2)) { WRITE(X1_DIR_PIN, !INVERT_X1_DIR); }
+          else                  { WRITE(X1_DIR_PIN, INVERT_X1_DIR); }
+        }
       #endif
     #endif
     count_direction[X_AXIS]=1;
@@ -444,8 +467,14 @@ FORCE_INLINE void set_directions()
       #if !defined(DUAL_Y_DRIVE) || EXTRUDERS==1
         WRITE(Y_DIR_PIN, INVERT_Y_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(Y0_DIR_PIN, INVERT_Y0_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(Y1_DIR_PIN, INVERT_Y1_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) {
+          if(!(follow_mir & 1)) { WRITE(Y0_DIR_PIN, INVERT_Y0_DIR); }
+          else                  { WRITE(Y0_DIR_PIN, !INVERT_Y0_DIR); }
+        }
+        if(current_e==1 || (follow_me & 2)!=0) {
+          if(!(follow_mir & 2)) { WRITE(Y1_DIR_PIN, INVERT_Y1_DIR); }
+          else                  { WRITE(Y1_DIR_PIN, !INVERT_Y1_DIR); }
+        }
       #endif
     #endif
     count_direction[Y_AXIS]=-1;
@@ -455,8 +484,14 @@ FORCE_INLINE void set_directions()
       #if !defined(DUAL_Y_DRIVE) || EXTRUDERS==1
         WRITE(Y_DIR_PIN, !INVERT_Y_DIR);
       #else
-        if(current_e==0 || (follow_me & 1)!=0) { WRITE(Y0_DIR_PIN, !INVERT_Y0_DIR); }
-        if(current_e==1 || (follow_me & 2)!=0) { WRITE(Y1_DIR_PIN, !INVERT_Y1_DIR); }
+        if(current_e==0 || (follow_me & 1)!=0) {
+          if(!(follow_mir & 1)) { WRITE(Y0_DIR_PIN, !INVERT_Y0_DIR); }
+          else                  { WRITE(Y0_DIR_PIN, INVERT_Y0_DIR); };
+        }
+        if(current_e==1 || (follow_me & 2)!=0) {
+          if(!(follow_mir & 2)) { WRITE(Y1_DIR_PIN, !INVERT_Y1_DIR); }
+          else                  { WRITE(Y1_DIR_PIN, INVERT_Y1_DIR); }
+        }
       #endif
     #endif
     count_direction[Y_AXIS]=1;
@@ -532,7 +567,11 @@ FORCE_INLINE void check_endstops()
   // Check limit switches
   if ((out_bits & (1<<X_AXIS)) != 0) {   // stepping along -X axis
     #if X_MIN_PIN > -1
-    CHECK_ENDSTOPS
+    #ifdef DUAL_X_DRIVE
+    if(endstops_enabled && !min_x_endstop_ignore[current_e])
+    #else // DUAL_X_DRIVE
+    if(endstops_enabled)
+    #endif // DUAL_X_DRIVE
     {
       bool x_min_endstop=(READ(X_MIN_PIN) != X_ENDSTOPS_INVERTING);
       if(x_min_endstop && old_x_min_endstop && (current_block->steps_x > 0)) {
@@ -546,7 +585,11 @@ FORCE_INLINE void check_endstops()
   }
   else { // +direction
     #if X_MAX_PIN > -1
-    CHECK_ENDSTOPS 
+    #ifdef DUAL_X_DRIVE
+    if(endstops_enabled && !max_x_endstop_ignore[current_e])
+    #else // DUAL_X_DRIVE
+    if(endstops_enabled)
+    #endif // DUAL_X_DRIVE
     {
       bool x_max_endstop=(READ(X_MAX_PIN) != X_ENDSTOPS_INVERTING);
       if(x_max_endstop && old_x_max_endstop && (current_block->steps_x > 0)){
@@ -561,7 +604,11 @@ FORCE_INLINE void check_endstops()
 
   if ((out_bits & (1<<Y_AXIS)) != 0) {   // -direction
     #if Y_MIN_PIN > -1
-    CHECK_ENDSTOPS
+    #ifdef DUAL_Y_DRIVE
+    if(endstops_enabled && !min_y_endstop_ignore[current_e])
+    #else // DUAL_Y_DRIVE
+    if(endstops_enabled)
+    #endif // DUAL_Y_DRIVE
     {
       bool y_min_endstop=(READ(Y_MIN_PIN) != Y_ENDSTOPS_INVERTING);
       if(y_min_endstop && old_y_min_endstop && (current_block->steps_y > 0)) {
@@ -575,7 +622,11 @@ FORCE_INLINE void check_endstops()
   }
   else { // +direction
     #if Y_MAX_PIN > -1
-    CHECK_ENDSTOPS
+    #ifdef DUAL_Y_DRIVE
+    if(endstops_enabled && !max_y_endstop_ignore[current_e])
+    #else // DUAL_Y_DRIVE
+    if(endstops_enabled)
+    #endif // DUAL_Y_DRIVE
     {
       bool y_max_endstop=(READ(Y_MAX_PIN) != Y_ENDSTOPS_INVERTING);
       if(y_max_endstop && old_y_max_endstop && (current_block->steps_y > 0)){
@@ -590,7 +641,7 @@ FORCE_INLINE void check_endstops()
 
   if ((out_bits & (1<<Z_AXIS)) != 0) {   // -direction
     #if Z_MIN_PIN > -1
-    CHECK_ENDSTOPS
+    if(endstops_enabled)
     {
       bool z_min_endstop=(READ(Z_MIN_PIN) != Z_ENDSTOPS_INVERTING);
       if(z_min_endstop && old_z_min_endstop && (current_block->steps_z > 0)) {
@@ -604,7 +655,7 @@ FORCE_INLINE void check_endstops()
   }
   else { // +direction
     #if Z_MAX_PIN > -1
-    CHECK_ENDSTOPS
+    if(endstops_enabled)
     {
       bool z_max_endstop=(READ(Z_MAX_PIN) != Z_ENDSTOPS_INVERTING);
       if(z_max_endstop && old_z_max_endstop && (current_block->steps_z > 0)) {

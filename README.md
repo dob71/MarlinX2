@@ -154,50 +154,91 @@ to start support printing and "T0 S1" to go go back to the object printing.
 Alternatively, If you have gcode for extrider 0 and 1 generated separately 
 and then mixed just use T0 and T1 to switch between the extruders.
 
-In general, the commands and settings for extruder are applied only to the
-active extruder. For example, to change max feedrate for extruders 0 and
-1, one has to switch to the extruder 0, set its rate, then switch to
-the extruder 1 and set its rate. There are several exceptions. 
+By default, the extruder commands and settings are applied only to the
+active extruder. For example, to change max feedrate for extruders 1 
+while extruder 0 is active, one has to either use T1 option with M203 command
+setting the new feedrate or switch to the extruder 1 by sending T1 command 
+and set the feedrate with M203 after that.
 
-The M503 command shows info for all extruders. It simply prints multiple 
-parameters that are extruder specific starting from the value for the extruder 0 
-and so on, for example you'll see two 'E'(rate) values if there are 2 
-extruders. 
+The M503 command (print EEPROM setting) shows info for all extruders. 
+It shows the setting for extruder 0 first (without the T option).
+Then it shows extruder specific command settings with T option for 
+additional extruders. 
 
-Some of the commands (like M104, M105 and M109) can take extruder
-number as a parameter. For example, in order to change the temperature 
-of the extruder 1 heater without switching to it use "M104 S180 T1".
-M105 can also be used with option A1 that will change its output to 
-show temperature of all extruders starting with the active one (for example
-if extruder 1 is active on a 2 extruder system: "ok T1:27 T0:27 B:25").
+The commands affecting different extruders (like M104, M105 and M109) can 
+take extruder number as a parameter. For example, in order to change the 
+temperature of the extruder 1 heater without switching to it use 
+"M104 S180 T1". Some commands can also be used with option A1 for affecting 
+all extruders. For example, M105 can be used with option A1 that will change 
+its output to show temperature of all extruders starting with the active one 
+as well as the target temperature (for example, if extruder 0 is active on 
+a 2 extruder system, target temperature set to 100deg and bed temperature
+is not set: "ok T0:56/100 T1:51/100  B:20/0").
 
 M109 can be used to wait for all extruder heaters that have temperature 
 set to non-0 values by specifying non-0 'A' parameter, e.g. "M109 A1".
 M109 can also take the W_num_ parameter that can change the default 
 dwell time for temperature stabilization (if enabled in the config).
 
-Note: If using old Printrun, your version might not accept the "T" command.
-You might need to open pronsole.py and change all occurances of
-    if(l[0]=='M' or l[0]=="G"):
-to
-    if(l[0]=='M' or l[0]=='G' or l[0]=='T'):
+The "follw me" mode command (M322), turns the "follow me" mode on or 
+off for extruders (T<extruder>  S<1-on/0-off>). The mode has to be off 
+for the active extruder. The extruders that have the mode set repeat 
+moves of the active extruder (for simultaneous printing from multiple 
+extruders). The command also has H and F options for turning on/off 
+follow me heater (H) and follow-me fan (F) modes. When the modes are on the 
+temperature and fan setting changes of the active extruder are applied 
+to the followers too. The option R allows to turn on or off the "reverse" 
+mode for the follwer's extruder on dual X or Y drive machines. That mode 
+allows simultaneous printing of mirrored copy of the object. Those are 
+often needed when printing printer parts (for example left and right 
+extruder parts) or halfs of some single object that have to be glued 
+together.
+
+Note that the firmware retract feature (FWRETRACT define) is not 
+multiple extruder compatible.
 
 
-More updates to readme:
-- Make a note that all setup commands now take 'T#' paramter
-- Make a note that M205 now uses V# for min travel feedrate and T# to 
-  specify extruder number the max E-jerk is being set for
-- Make note M204 use R instead of T for retract acceleration
-- Make note that acceleration and retract_aceleration are saved in EEPROM
-- Make a note that fan can be per extruder or multiple independent fans (for M106/M107 commands).
-- Change the M109, M104 H and L options description (state that limit down or up to 
-  one step, but the step can be any number of degrees, so gradual multiple steps 
-  are possible through making a step up and down to different number of degrees).
-- Make note that there is no multiple extruder support for FWRETRACT
-- Add note M322 - Turn the "follow me" mode on or off for  extruders 
-  (paramters: T<extruder>  S<1-on/0-off>), has to be off for the active extruder.
-- Add note about M340 (compression compensation)
-- Add note about M331/M332 (position save/restore)
+What changes came with the Marlin X2 v1.1.0:
+============================================
+- Support for dual X or Y drive machines (i.e. machines that can move 
+  multiple hotends independently on X or Y axis)
+- M322 the "follw me" mode command
+- M331/M332 (position save/restore commands)
+- M340 (filament compression compensation) command
+- Option to disable chit-chat (human readable "echo") printouts during 
+  printing (see NO_ECHO_WHILE_PRINTING in Configuration_adv.h)
+- All setup commands take 'T#' paramter for specifying extruder 
+  the command applies to. For example:
+    M92 T0 E661.78
+    M203 T0 E23.00
+    M201 T1 E5000
+    M204 T0 S3000.00 R60000.00
+    M205 T1 E17.00
+    M218 T1 X0.00 Y-0.05
+    ...
+  As of this writing the complete list of comands accepting T# for 
+  choosing extruder includes:
+    M104, M105, M109, M106, M107, M92, M201, M203, M204, 
+    M205, M206, M218, M322, M340
+  Note:
+  M205 now uses V for min travel feedrate and T for choosing the extruder
+  M204 now uses R for retract acceleration and T for choosing the extruder
+- Acceleration and retract_aceleration are now saved in EEPROM
+- M109, M104 H and L options are now limited to bump temperature up or down 
+  only once until opposite option is used. However, if desired, it is 
+  possible to invoke the opposite option with zero degrees change and 
+  further bump the temperature the same direction.
+- M504 command can be used to set firmware debug flags enabling debug 
+  output if ENABLE_DEBUG is defined (see Configuration_adv.h).
+  Option 'S' sets the flags, option 'P' is for immediate debug actions.
+- M301 option R sets the range off of the target temperature where PID 
+  algorithm is to be used, outside of that range the temperature control 
+  is done with simple ON/OFF logic (see PID_FUNCTIONAL_RANGE define).
+- The option A can be used to turn on multiple extruder output format 
+  for commands M105, M109 and M190 (can be useful for the host software)
+  Example:
+    SENDING:M105 A1
+    ok T0:19/0 T1:19/0  B:19/0
 
 Non-standard G-Codes, different to an old version of sprinter:
 ==============================================================
@@ -228,15 +269,10 @@ Movement variables:
 *   M400 - Finish all buffered moves.
 
 Temperature variables:
+
 *   M301 - Set PID parameters P I and D
 *   M302 - Allow cold extrudes
 *   M303 - PID relay autotune S<temperature> sets the target temperature. (default target temperature = 150C)
-
-Advance:
-
-*   M200 - Set filament diameter for advance
-*   M205 - advanced settings:  minimum travel speed S=while printing T=travel only,  B=minimum segment time X= maximum xy jerk, Z=maximum Z jerk, E= max E jerk (for retracts)
-*   M208 - set XY offset for extruders (off of the printing point)
 
 EEPROM:
 
@@ -250,10 +286,28 @@ MISC:
 
 *   M240 - Trigger a camera to take a photograph
 *   M999 - Restart after being stopped by error
+*   M331 - Save current position coordinates (all axes, for active extruder).
+           S<SLOT> - specifies memory slot # (0-based) to save into (default 0)
+*   M332 - Apply/restore saved coordinates to the active extruder. X<0|1>,
+           Y<0|1>,Z<0|1>,E<0|1> - use 1 to filter the axis in (default), 0 to 
+           filter it out. F<speed> - make move to the restored position, if 
+           'F' is not used the restored coordinates set as current position. 
+           S<SLOT> - specifies memory slot # (0-based) to restore from 
+           (default 0)
+
 
 MULTIPLE EXTRUDERS:
 
 *   T - changes active extruder (details in the section above) 
+
+
+FILAMENT COMPRESSION COMPENSATION:
+
+*   M340 - (compression compensation) command. That command allows to specify 
+    a table of values telling the firmware how much the filament being 
+    pushed to the hotend compresses depending on how fast it has to be extruded 
+    and compensate. That is still experimental. It covers the functionality 
+    called "ADVANCE" (the ADVANCE code was broken in Marlin).
 
 
 Configuring and compilation:

@@ -160,8 +160,8 @@
     //    #define  DEFAULT_Ki 0.1  
     //    #define  DEFAULT_Kd 12  
     #define  DEFAULT_Kp 70.0
-    #define  DEFAULT_Ki 50.0  
-    #define  DEFAULT_Kd 120.0  
+    #define  DEFAULT_Ki 5.0  
+    #define  DEFAULT_Kd 120  
 
     // Mendel Parts V9 on 12V    
     //    #define  DEFAULT_Kp 63.0
@@ -281,7 +281,7 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 //#define INVERT_Y1_DIR true   // Y second motor direction
 #define INVERT_Z_DIR true    // for Mendel set to false, for Orca set to true
 #define INVERT_E0_DIR false  // for direct drive extruder v9 set to true, for geared extruder set to false
-#define INVERT_E1_DIR false  // for direct drive extruder v9 set to true, for geared extruder set to false
+#define INVERT_E1_DIR true   // for direct drive extruder v9 set to true, for geared extruder set to false
 #define INVERT_E2_DIR false  // for direct drive extruder v9 set to true, for geared extruder set to false
 
 // ENDSTOP SETTINGS:
@@ -300,19 +300,19 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 
 // Travel limits after homing (use defines for dual drives if enabled for axes)
 // For dual drive on an axis use numbered variations of the define and comment out the unnumbered.
-#define X_MAX_POS 250
-//#define X0_MAX_POS 250
-//#define X1_MAX_POS 295
+#define X_MAX_POS 205
+//#define X0_MAX_POS 207.45
+//#define X1_MAX_POS 252.45
 #define X_MIN_POS 0
-//#define X0_MIN_POS 0
-//#define X1_MIN_POS 45
-#define Y_MAX_POS 200
+//#define X0_MIN_POS -35
+//#define X1_MIN_POS 10
+#define Y_MAX_POS 198
 //#define Y0_MAX_POS 200
 //#define Y1_MAX_POS 200
 #define Y_MIN_POS 0
 //#define Y0_MIN_POS 0
 //#define Y1_MIN_POS 0
-#define Z_MAX_POS 150
+#define Z_MAX_POS 125
 #define Z_MIN_POS 0
 
 // What's the max move distance along an axis? For dual drievs use the greatest.
@@ -331,7 +331,7 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 //Manual homing switch locations:
 //#define MANUAL_X_HOME_POS 0
 //#define MANUAL_X0_HOME_POS 0
-//#define MANUAL_X1_HOME_POS 295
+//#define MANUAL_X1_HOME_POS 290
 //#define MANUAL_Y_HOME_POS 0
 //#define MANUAL_Y0_HOME_POS 0
 //#define MANUAL_Y1_HOME_POS 200
@@ -442,6 +442,7 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // The compensation for speed 0mm/s is always 0mm and should not be listed.
 // For speeds higher than listed the compensation for the last entry is used.
 // Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
+
 //#define C_COMPENSATION  {{0.1, 0.3}}, \
 //                        {{0.5, 0.9}}, \
 //                        {{1.0, 1.2}}, \

@@ -51,27 +51,45 @@
   #define MYSERIAL MSerial
 #endif
 
-#define SERIAL_PROTOCOL(x) MYSERIAL.print(x);
-#define SERIAL_PROTOCOL_F(x,y) MYSERIAL.print(x,y);
-#define SERIAL_PROTOCOLPGM(x) serialprintPGM(PSTR(x));
+#define SERIAL_PROTOCOL(x) MYSERIAL.print(x)
+#define SERIAL_PROTOCOL_F(x,y) MYSERIAL.print(x,y)
+#define SERIAL_PROTOCOLPGM(x) serialprintPGM(PSTR(x))
 #define SERIAL_PROTOCOLLN(x) {MYSERIAL.print(x);MYSERIAL.write('\n');}
 #define SERIAL_PROTOCOLLNPGM(x) {serialprintPGM(PSTR(x));MYSERIAL.write('\n');}
 
 extern const char errormagic[];
 extern const char echomagic[];
 
-#define SERIAL_ERROR_START serialprintPGM(errormagic);
+#define SERIAL_ERROR_START serialprintPGM(errormagic)
 #define SERIAL_ERROR(x) SERIAL_PROTOCOL(x)
 #define SERIAL_ERRORPGM(x) SERIAL_PROTOCOLPGM(x)
 #define SERIAL_ERRORLN(x) SERIAL_PROTOCOLLN(x)
 #define SERIAL_ERRORLNPGM(x) SERIAL_PROTOCOLLNPGM(x)
 
-#define SERIAL_ECHO_START serialprintPGM(echomagic);
-#define SERIAL_ECHO(x) SERIAL_PROTOCOL(x)
-#define SERIAL_ECHOPGM(x) SERIAL_PROTOCOLPGM(x)
-#define SERIAL_ECHOLN(x) SERIAL_PROTOCOLLN(x)
-#define SERIAL_ECHOLNPGM(x) SERIAL_PROTOCOLLNPGM(x)
-#define SERIAL_ECHOPAIR(name,value) (serial_echopair_P(PSTR(name),(value)))
+#ifdef NO_ECHO_WHILE_PRINTING
+#  define SERIAL_ECHO_START ((!machine_printing || (debug_flags & ECHO_WHILE_PRINTING != 0)) ? \
+                              ((serialprintPGM(echomagic)),do_print=true) : (do_print=false))
+#  define SERIAL_ECHO(x) (do_print ? (SERIAL_PROTOCOL(x)) : (void)0)
+#  define SERIAL_ECHOPGM(x) (do_print ? (SERIAL_PROTOCOLPGM(x)) : (void)0)
+#  define SERIAL_ECHOPAIR(name,value) (do_print ? (serial_echopair_P(PSTR(name),(value))) : (void)0)
+#  define SERIAL_ECHOLN(x) (do_print ? (SERIAL_PROTOCOLLN(x)) : (void)(do_print=true))
+#  define SERIAL_ECHOLNPGM(x) (do_print ? (SERIAL_PROTOCOLLNPGM(x)) : (void)(do_print=true))
+#else  // NO_ECHO_WHILE_PRINTING
+#  define SERIAL_ECHO_START serialprintPGM(echomagic)
+#  define SERIAL_ECHO(x) SERIAL_PROTOCOL(x)
+#  define SERIAL_ECHOPGM(x) SERIAL_PROTOCOLPGM(x)
+#  define SERIAL_ECHOPAIR(name,value) (serial_echopair_P(PSTR(name),(value)))
+#  define SERIAL_ECHOLN(x) SERIAL_PROTOCOLLN(x)
+#  define SERIAL_ECHOLNPGM(x) SERIAL_PROTOCOLLNPGM(x)
+#endif // NO_ECHO_WHILE_PRINTING
+
+// The min number of blocks that if queued machine is assumed to be
+// printing. Calculated on the input of the new command.
+#define MACHINE_PRINTING_BLOCKS 1
+// Flag controlling printing of echo strings  
+extern bool machine_printing;
+// Flag controlling printing of echo strings  
+extern bool do_print;
 
 // Macro for getting current active extruder
 #define ACTIVE_EXTRUDER ((int)active_extruder)
@@ -243,6 +261,9 @@ extern unsigned char fanSpeed[EXTRUDERS];
   #ifdef PER_EXTRUDER_FANS
     extern bool follow_me_fan; // Follw the fan speed changes
   #endif // PER_EXTRUDER_FANS
+  #if defined(DUAL_X_DRIVE) || defined(DUAL_Y_DRIVE)
+    extern uint8_t follow_mir; // Bitmask of the follow me mirror mode state
+  #endif
 #endif // EXTRUDERS > 1
 
 extern unsigned long starttime;
@@ -252,11 +273,12 @@ extern unsigned long stoptime;
   // These are debug flags that when set enable printing out various info
   // during printer operation. Use with M504 S<DBG_SET_FLAGS>
   extern unsigned int debug_flags;
-  #define PID_DEBUG            0x0001
+  #define ECHO_WHILE_PRINTING  0x0001
   #define FAN_DEBUG            0x0002
   #define C_COMPENSATION_DEBUG 0x0004
   #define C_COMP_STEPS_DEBUG   0x0008
-  #define C_ACCEL_STEPS_DEBUG  0x0010
+  #define ACCEL_STEPS_DEBUG    0x0010
+  #define PID_DEBUG            0x0020
   // These are debug flags that can be used with M504 P<DBG_PRINT_FLAGS> 
   // for printing out information by the M504 command itself.
   #define DEBUG_PRINT_PLAN     0x0001
