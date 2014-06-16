@@ -257,16 +257,37 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   long target_advance;
   long final_advance;
   float e_factor = (float)block->steps_e / (float)block->step_event_count;
-  // Set filament compensation values in steps (only if moving in X, Y and positive E)
-  if((block->steps_x > dropsegments || block->steps_y > dropsegments) && 
-     (block->steps_e > 0 && (block->direction_bits & (1<<E_AXIS)) == 0))
+  float no_comp_dst = 0.0;
+  float prop_comp_dst = 0.0;
+  #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
+  no_comp_dst = gCCom_no_comp_dst[block->active_extruder];
+  #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST
+  #ifdef C_COMPENSATION_PROP_COMP_TRAVEL_DST
+  prop_comp_dst = gCCom_prop_comp_dst[block->active_extruder];
+  #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
+  // Set filament compensation only if moving and feeding filament
+  if(!block->retract && !block->restore && !block->travel)
   {
     calc_c_comp(initial_rate * e_factor, initial_advance, 
                 target_rate * e_factor, target_advance, 
                 final_rate * e_factor, final_advance,
                 block->active_extruder);
-  } 
-  else // For all other blocks keep compensation unchanged
+  }
+  #if defined(C_COMPENSATION_NO_COMP_TRAVEL_DST) || \
+      defined(C_COMPENSATION_PROP_COMP_TRAVEL_DST)
+  else if(block->travel && (block->millimeters > prop_comp_dst))
+  {
+    initial_advance = target_advance = final_advance = 0;
+  }
+  else if(block->travel && (block->millimeters > no_comp_dst))
+  {
+    float prop_advance = ((float)block->prev_advance) * 
+                         (block->millimeters - no_comp_dst) / 
+                         (prop_comp_dst - no_comp_dst);
+    initial_advance = target_advance = final_advance = floor(prop_advance);
+  }
+  #endif // NO_COMP_TRAVEL_DST or PROP_COMP_TRAVEL_DST
+  else // For all other blocks keep the compensation unchanged
   {
     initial_advance = target_advance = final_advance = block->prev_advance;
   }
@@ -439,6 +460,8 @@ void planner_recalculate_trapezoids() {
         #ifdef C_COMPENSATION
         if(prev && prev->next_advance != current->initial_advance) {
           prev->next_advance = current->initial_advance;
+          if(prev->restore) // Restore is a special case, set target to next block compensation
+            prev->target_advance = prev->final_advance = current->prev_advance = prev->next_advance;
         }
         #endif // C_COMPENSATION
       }
@@ -458,6 +481,8 @@ void planner_recalculate_trapezoids() {
     #ifdef C_COMPENSATION
     if(current) {
       current->next_advance = next->initial_advance;
+      if(current->restore) // Restore is a special case, set target to next block compensation
+        current->target_advance = current->final_advance = next->prev_advance = current->next_advance;
     }
     #endif // C_COMPENSATION
   }
@@ -711,8 +736,6 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   block->steps_y = labs(target[Y_AXIS]-position[Y_AXIS]);
   block->steps_z = labs(target[Z_AXIS]-position[Z_AXIS]);
   block->steps_e = labs(target[E_AXIS]-position[E_AXIS]);
-  block->steps_e *= extrudemultiply;
-  block->steps_e /= 100;
   block->step_event_count = max(block->steps_x, max(block->steps_y, max(block->steps_z, block->steps_e)));
 
   // Bail if this is a zero-length block
@@ -779,8 +802,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   delta_mm[X_AXIS] = (target[X_AXIS]-position[X_AXIS])/axis_steps_per_unit[X_AXIS];
   delta_mm[Y_AXIS] = (target[Y_AXIS]-position[Y_AXIS])/axis_steps_per_unit[Y_AXIS];
   delta_mm[Z_AXIS] = (target[Z_AXIS]-position[Z_AXIS])/axis_steps_per_unit[Z_AXIS];
-  delta_mm[E_AXIS] = ((target[E_AXIS]-position[E_AXIS])/axis_steps_per_unit[E_AXIS + extruder]) *
-                     extrudemultiply / 100.0;
+  delta_mm[E_AXIS] = (target[E_AXIS]-position[E_AXIS])/axis_steps_per_unit[E_AXIS + extruder];
 
   block->retract = block->restore = false;
   if ( block->steps_x <= dropsegments && block->steps_y <= dropsegments && block->steps_z <= dropsegments )
@@ -840,18 +862,18 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   }
   
 #ifdef C_COMPENSATION
-# define COMP_SPEED (gCCom_min_speed[extruder])
-  block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * gCCom_min_speed[extruder];
+  float c_min_speed = gCCom_min_speed[extruder];
+  block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * c_min_speed;
   block->prev_advance = 0;
   block->next_advance = 0;
 #else // C_COMPENSATION
-# define COMP_SPEED (0.0)
+  float c_min_speed = 0.0;
 #endif // C_COMPENSATION
 
   current_speed[E_AXIS] = delta_mm[E_AXIS] * inverse_second;
-  if(fabs(current_speed[E_AXIS]) > max_feedrate[E_AXIS + extruder] - COMP_SPEED)
+  if(fabs(current_speed[E_AXIS]) > max_feedrate[E_AXIS + extruder] - c_min_speed)
   {
-    speed_factor = min(speed_factor, (max_feedrate[E_AXIS + extruder] - COMP_SPEED) / 
+    speed_factor = min(speed_factor, (max_feedrate[E_AXIS + extruder] - c_min_speed) / 
                                      fabs(current_speed[E_AXIS]));
   }
   
@@ -957,8 +979,8 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
       if(fabs(current_speed[Z_AXIS] - previous_speed[Z_AXIS]) > max_z_jerk) {
         vmax_junction_factor= min(vmax_junction_factor, (max_z_jerk/fabs(current_speed[Z_AXIS] - previous_speed[Z_AXIS])));
       } 
-      if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) + COMP_SPEED > max_e_jerk[extruder]) {
-        vmax_junction_factor = min(vmax_junction_factor, (max_e_jerk[extruder]/(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS])) + COMP_SPEED));
+      if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) + c_min_speed > max_e_jerk[extruder]) {
+        vmax_junction_factor = min(vmax_junction_factor, (max_e_jerk[extruder]/(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS])) + c_min_speed));
       } 
       vmax_junction = min(previous_nominal_speed, vmax_junction * vmax_junction_factor); // Limit speed to max previous speed
     }
@@ -969,11 +991,22 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     block->entry_speed = min(vmax_junction, v_allowable);
 
 #ifdef C_COMPENSATION
-    // Bump up the compensation speed to e-jerk if can
-    if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) + COMP_SPEED < max_e_jerk[extruder]) {
+    // Adjust compensation speed to its max allowed value
+    float e_speed_change = fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]);
+    float e_jerk_allowance = max_e_jerk[extruder] - e_speed_change;
+    if(gCCom_max_speed[extruder] < e_jerk_allowance) 
+    {
       block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * 
-                                 (max_e_jerk[extruder] - fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]));
+                                 gCCom_max_speed[extruder];
     } 
+    else if(e_jerk_allowance > c_min_speed) 
+    {
+      block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * 
+                                 e_jerk_allowance;
+    } else {
+      block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * 
+                                 gCCom_min_speed[extruder];
+    }
 #endif // C_COMPENSATION
 
     // Initialize planner efficiency flags

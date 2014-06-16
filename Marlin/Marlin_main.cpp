@@ -174,7 +174,6 @@ float homing_feedrate[] = HOMING_FEEDRATE;
 bool axis_relative_modes[] = AXIS_RELATIVE_MODES;
 int feedmultiply=100; //100->1 200->2
 int saved_feedmultiply;
-int extrudemultiply=100; //100->1 200->2
 float current_position[NUM_AXIS];
 float e_last_position[EXTRUDERS];
 #ifdef DUAL_X_DRIVE
@@ -216,6 +215,16 @@ float extruder_offset[2][EXTRUDERS] = {
   int gCComp_size[EXTRUDERS];
   int gCComp_max_size = sizeof(gCComp) / ((EXTRUDERS * sizeof(float)) << 1);
   float gCCom_min_speed[EXTRUDERS] = C_COMPENSATION_MIN_SPEED;
+  float gCCom_max_speed[EXTRUDERS] = C_COMPENSATION_MAX_SPEED;
+  #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
+  float gCCom_overcomp[EXTRUDERS] = C_COMPENSATION_OVERCOMPENSATE_RATIO;
+  #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
+  #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
+  float gCCom_no_comp_dst[EXTRUDERS] = C_COMPENSATION_NO_COMP_TRAVEL_DST;
+  #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST
+  #ifdef C_COMPENSATION_PROP_COMP_TRAVEL_DST
+  float gCCom_prop_comp_dst[EXTRUDERS] = C_COMPENSATION_PROP_COMP_TRAVEL_DST;
+  #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
@@ -1741,14 +1750,6 @@ void process_commands()
       }
     }
     break;
-    case 221: // M221 S<factor in percent>- set extrude factor override percentage
-    {
-      if(code_seen('S')) 
-      {
-        extrudemultiply = code_value() ;
-      }
-    }
-    break;
 
     case 240: // M240  Triggers a camera by emulating a Canon RC-1 : http://www.doc-diy.net/photo/rc-1_hacked/
     {
@@ -1985,6 +1986,7 @@ void process_commands()
       if(setTargetedHotend(340)){
         break;
       }
+      st_synchronize();
       int pos;
       if(code_seen('P')) {
         pos = code_value();
@@ -2010,12 +2012,41 @@ void process_commands()
       if(code_seen('R')) {
         gCCom_min_speed[tmp_extruder] = code_value();
       }
+      if(code_seen('X')) {
+        gCCom_max_speed[tmp_extruder] = code_value();
+      }
+      #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
+      if(code_seen('O')) {
+        gCCom_overcomp[tmp_extruder] = code_value();
+      }
+      #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
+      #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
+      if(code_seen('L')) {
+        gCCom_no_comp_dst[tmp_extruder] = code_value();
+      }
+      #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST
+      #ifdef C_COMPENSATION_PROP_COMP_TRAVEL_DST
+      if(code_seen('H')) {
+        gCCom_prop_comp_dst[tmp_extruder] = code_value();
+      }
+      #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
+      
       // Print the compensation table
       SERIAL_ECHO_START;
       SERIAL_ECHOLN(MSG_CCOMP_TABLE);
       SERIAL_ECHO_START;
       SERIAL_ECHOPAIR("T:", (int)tmp_extruder);
       SERIAL_ECHOPAIR(" R:", gCCom_min_speed[tmp_extruder]);
+      SERIAL_ECHOPAIR(" X:", gCCom_max_speed[tmp_extruder]);
+      #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
+      SERIAL_ECHOPAIR(" O:", gCCom_overcomp[tmp_extruder]);
+      #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
+      #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
+      SERIAL_ECHOPAIR(" L:", gCCom_no_comp_dst[tmp_extruder]);
+      #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST
+      #ifdef C_COMPENSATION_PROP_COMP_TRAVEL_DST
+      SERIAL_ECHOPAIR(" H:", gCCom_prop_comp_dst[tmp_extruder]);
+      #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
       SERIAL_ECHOLN("");
       for(pos = 0; pos < gCComp_size[tmp_extruder]; pos++) 
       {
