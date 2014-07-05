@@ -359,15 +359,20 @@ FORCE_INLINE void trapezoid_generator_reset() {
   advance = initial_advance = current_block->initial_advance;
   target_advance = current_block->target_advance;
   // Set final compensation to prepare for the next block   
-  // process, otherwise go down to 0.
-#ifdef C_COMPENSATION_HALF_PUSH
+  // processing, otherwise go down to 0.
+#if defined(C_COMPENSATION_NO_PUSH)
+  final_advance = current_block->final_advance;
+#elif defined(C_COMPENSATION_HALF_PUSH)
   final_advance = (current_block->final_advance + current_block->next_advance) >> 1;
-#else // C_COMPENSATION_HALF_PUSH
+#elif defined(C_COMPENSATION_FULL_PUSH)
   final_advance = current_block->next_advance;
-#endif // C_COMPENSATION_HALF_PUSH
+#else  // final compensation setting strategy
+  #error Define one of: C_COMPENSATION_<NO_PUSH|FULL_PUSH|HALF_PUSH>
+#endif // final compensation setting strategy
 #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
   if(!current_block->retract && !current_block->restore && 
-     !current_block->travel) 
+     !current_block->travel && 
+     current_block->next_advance > current_block->target_advance) 
   {
     int diff = current_block->next_advance - current_block->target_advance;
     final_advance += (float)diff * gCCom_overcomp[current_block->active_extruder];

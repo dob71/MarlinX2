@@ -216,6 +216,9 @@ float extruder_offset[2][EXTRUDERS] = {
   int gCComp_max_size = sizeof(gCComp) / ((EXTRUDERS * sizeof(float)) << 1);
   float gCCom_min_speed[EXTRUDERS] = C_COMPENSATION_MIN_SPEED;
   float gCCom_max_speed[EXTRUDERS] = C_COMPENSATION_MAX_SPEED;
+  #ifdef C_COMPENSATION_AUTO_RETRACT_DST
+  float gCCom_retr_dst[EXTRUDERS] = C_COMPENSATION_AUTO_RETRACT_DST;
+  #endif // C_COMPENSATION_AUTO_RETRACT_DST
   #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
   float gCCom_overcomp[EXTRUDERS] = C_COMPENSATION_OVERCOMPENSATE_RATIO;
   #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
@@ -225,6 +228,10 @@ float extruder_offset[2][EXTRUDERS] = {
   #ifdef C_COMPENSATION_PROP_COMP_TRAVEL_DST
   float gCCom_prop_comp_dst[EXTRUDERS] = C_COMPENSATION_PROP_COMP_TRAVEL_DST;
   #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
+  #ifdef C_COMPENSATION_CH_LIMIT
+  float gCCom_ch_limit[EXTRUDERS] = C_COMPENSATION_CH_LIMIT;
+  float gCCom_low_e_limit[EXTRUDERS];
+  #endif // C_COMPENSATION_CH_LIMIT
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
@@ -2009,44 +2016,60 @@ void process_commands()
             size++);
         gCComp_size[tmp_extruder] = size;
       }
-      if(code_seen('R')) {
+      if(code_seen('L')) {
         gCCom_min_speed[tmp_extruder] = code_value();
       }
-      if(code_seen('X')) {
+      if(code_seen('H')) {
         gCCom_max_speed[tmp_extruder] = code_value();
       }
+      #ifdef C_COMPENSATION_AUTO_RETRACT_DST
+      if(code_seen('R')) {
+        gCCom_retr_dst[tmp_extruder] = code_value();
+      }
+      #endif // C_COMPENSATION_AUTO_RETRACT_DST
       #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
       if(code_seen('O')) {
         gCCom_overcomp[tmp_extruder] = code_value();
       }
       #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
       #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
-      if(code_seen('L')) {
+      if(code_seen('Z')) {
         gCCom_no_comp_dst[tmp_extruder] = code_value();
       }
       #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST
       #ifdef C_COMPENSATION_PROP_COMP_TRAVEL_DST
-      if(code_seen('H')) {
+      if(code_seen('X')) {
         gCCom_prop_comp_dst[tmp_extruder] = code_value();
       }
       #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
+      #ifdef C_COMPENSATION_CH_LIMIT
+      if(code_seen('E')) {
+        gCCom_ch_limit[tmp_extruder] = code_value();
+      }
+      #endif // C_COMPENSATION_CH_LIMIT
       
       // Print the compensation table
       SERIAL_ECHO_START;
       SERIAL_ECHOLN(MSG_CCOMP_TABLE);
       SERIAL_ECHO_START;
-      SERIAL_ECHOPAIR("T:", (int)tmp_extruder);
-      SERIAL_ECHOPAIR(" R:", gCCom_min_speed[tmp_extruder]);
-      SERIAL_ECHOPAIR(" X:", gCCom_max_speed[tmp_extruder]);
+      SERIAL_ECHOPAIR("Ext:", (int)tmp_extruder);
+      SERIAL_ECHOPAIR(" L:", gCCom_min_speed[tmp_extruder]);
+      SERIAL_ECHOPAIR(" H:", gCCom_max_speed[tmp_extruder]);
+      #ifdef C_COMPENSATION_AUTO_RETRACT_DST
+      SERIAL_ECHOPAIR(" R:", gCCom_retr_dst[tmp_extruder]);
+      #endif // C_COMPENSATION_AUTO_RETRACT_DST
       #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
       SERIAL_ECHOPAIR(" O:", gCCom_overcomp[tmp_extruder]);
       #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
       #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
-      SERIAL_ECHOPAIR(" L:", gCCom_no_comp_dst[tmp_extruder]);
+      SERIAL_ECHOPAIR(" Z:", gCCom_no_comp_dst[tmp_extruder]);
       #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST
       #ifdef C_COMPENSATION_PROP_COMP_TRAVEL_DST
-      SERIAL_ECHOPAIR(" H:", gCCom_prop_comp_dst[tmp_extruder]);
+      SERIAL_ECHOPAIR(" X:", gCCom_prop_comp_dst[tmp_extruder]);
       #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
+      #ifdef C_COMPENSATION_CH_LIMIT
+      SERIAL_ECHOPAIR(" E:", gCCom_ch_limit[tmp_extruder]);
+      #endif // C_COMPENSATION_CH_LIMIT
       SERIAL_ECHOLN("");
       for(pos = 0; pos < gCComp_size[tmp_extruder]; pos++) 
       {
