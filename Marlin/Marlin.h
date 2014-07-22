@@ -245,9 +245,6 @@ extern unsigned char fanSpeed[EXTRUDERS];
   #ifdef C_COMPENSATION_AUTO_RETRACT_DST
   extern float gCCom_retr_dst[EXTRUDERS];
   #endif // C_COMPENSATION_AUTO_RETRACT_DST
-  #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
-  extern float gCCom_overcomp[EXTRUDERS];
-  #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
   #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
   extern float gCCom_no_comp_dst[EXTRUDERS];
   #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST

@@ -219,9 +219,6 @@ float extruder_offset[2][EXTRUDERS] = {
   #ifdef C_COMPENSATION_AUTO_RETRACT_DST
   float gCCom_retr_dst[EXTRUDERS] = C_COMPENSATION_AUTO_RETRACT_DST;
   #endif // C_COMPENSATION_AUTO_RETRACT_DST
-  #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
-  float gCCom_overcomp[EXTRUDERS] = C_COMPENSATION_OVERCOMPENSATE_RATIO;
-  #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
   #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
   float gCCom_no_comp_dst[EXTRUDERS] = C_COMPENSATION_NO_COMP_TRAVEL_DST;
   #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST
@@ -2027,11 +2024,6 @@ void process_commands()
         gCCom_retr_dst[tmp_extruder] = code_value();
       }
       #endif // C_COMPENSATION_AUTO_RETRACT_DST
-      #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
-      if(code_seen('O')) {
-        gCCom_overcomp[tmp_extruder] = code_value();
-      }
-      #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
       #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
       if(code_seen('Z')) {
         gCCom_no_comp_dst[tmp_extruder] = code_value();
@@ -2058,9 +2050,6 @@ void process_commands()
       #ifdef C_COMPENSATION_AUTO_RETRACT_DST
       SERIAL_ECHOPAIR(" R:", gCCom_retr_dst[tmp_extruder]);
       #endif // C_COMPENSATION_AUTO_RETRACT_DST
-      #ifdef C_COMPENSATION_OVERCOMPENSATE_RATIO
-      SERIAL_ECHOPAIR(" O:", gCCom_overcomp[tmp_extruder]);
-      #endif // C_COMPENSATION_OVERCOMPENSATE_RATIO
       #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
       SERIAL_ECHOPAIR(" Z:", gCCom_no_comp_dst[tmp_extruder]);
       #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST

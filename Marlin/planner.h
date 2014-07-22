@@ -37,16 +37,19 @@ typedef struct {
   long acceleration_rate;                   // The acceleration rate used for acceleration calculation
   unsigned char direction_bits;             // The direction bit set for this block (refers to *_DIRECTION_BIT in config.h)
   unsigned char active_extruder;            // Selects the active extruder
-  bool retract;                             // Identified as retract move block (not yet used)
-  bool restore;                             // Identified as return move block
-  bool travel;                              // Identified as travel move block
+  union {
+    long non_printing;                      // Should cover all 3 below (at least for Arduino)
+    struct {
+      bool retract;                         // Identified as retract move block (not yet used)
+      bool restore;                         // Identified as return move block
+      bool travel;                          // Identified as travel move block
+    };
+  };
   #ifdef C_COMPENSATION
-    long initial_advance;                   // Steps to be ahead when entering the block
-    long target_advance;                    // Steps to be ahead when done accelerating
-    long final_advance;                     // Steps to be ahead when done with the block
-    long prev_advance;                      // Filled with final_advance of the prev block
-    long next_advance;                      // Filled with initial_advance of the next block
-    unsigned short advance_step_rate;       // How fast to advance in this block
+    long prev_target_advance;               // Steps ahead from previous block
+    long target_advance;                    // Steps ahead during the move (at nominal speed)
+    long final_advance;                     // Steps ahead at the end (won't start next till done adjusting)
+    unsigned short advance_step_rate;       // How fast to advance in this block (when at nominal speed phase)
   #endif // C_COMPENSATION
 
   // Fields used by the motion planner to manage acceleration

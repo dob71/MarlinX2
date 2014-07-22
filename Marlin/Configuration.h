@@ -359,9 +359,9 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // default settings 
 #define DEFAULT_AXIS_STEPS_PER_UNIT   {80.0000, 80.0000, 2284.7651, 661.78, 661.78} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
 #define DEFAULT_MAX_FEEDRATE          {230, 230, 7, 23, 23} // X,Y,Z,E0...(mm/sec)    
-#define DEFAULT_MAX_ACCELERATION      {1500, 1500, 100, 5000, 5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
+#define DEFAULT_MAX_ACCELERATION      {2000, 1500, 100, 5000, 5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
 #define DEFAULT_RETRACT_ACCELERATION  {60000, 60000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
-#define DEFAULT_ACCELERATION          3000    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
+#define DEFAULT_ACCELERATION          2500    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
 
 #define DEFAULT_XYJERK                2.0     // (mm/sec)
 #define DEFAULT_ZJERK                 0.4     // (mm/sec)
@@ -461,22 +461,6 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // M340 'H' can be used to adjust the value on the fly.
 #define C_COMPENSATION_MAX_SPEED { 17, 17 }
 
-// Each move is split by firmware into acceleration, normal travel and 
-// then deceleration phases. Continuous speed changes require compensation 
-// to be adjusted constantly. In practice that is not beneficial unless 
-// the acceleration and deceleration phases take a lot of time. Normally 
-// that is not the case and the below define should be used.
-#define C_COMPENSATION_IGNORE_ACCELERATION
-
-// Overcompensation allows to push more filament into tube at the beginning 
-// of the move. That is usually necessary as the compensated filament is not 
-// getting melted and not flowing fast enough when the printing speed 
-// increases significantly. The overcompensation length is calculated as the 
-// fraction of the compensation incrase from the current to the next move.
-// The overcompensation ratio is configured for each extruder.
-// M340 'O' can be used to adjust the value on the fly.
-#define C_COMPENSATION_OVERCOMPENSATE_RATIO { 0.3, 0.3 }
-
 // This auto-retract allows to use compensation to retract/restore filament 
 // for non-printing moves. It specifies the retract distance (in mm). If 
 // this define is used the compensation will automatically retract the  
@@ -485,25 +469,34 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // to calculate retract/restore allows to optimize the moves for adjusting 
 // the excess of the filament pushed into the hotend. If the compensation 
 // is properly configured the retract distance here should be smaller 
-// than that used in slicer. 
+// than that used in slicer (but slicer can skip retracts inside object). 
 // M340 'R' can be used to change the value on the fly. 
-#define C_COMPENSATION_AUTO_RETRACT_DST { 0.0, 0.0 }
+//#define C_COMPENSATION_AUTO_RETRACT_DST { 0.0, 0.0 }
 
-// The setting below can be used to minimize retract/restore for short travel 
-// moves. The C_COMPENSATION_NO_COMP_TRAVEL_DST sets the travel distance 
-// below which compensation is unchanged (no retract/restore) during the 
+// The setting below can be used to minimize compensation changes for short 
+// travel moves. The C_COMPENSATION_NO_COMP_TRAVEL_DST sets the travel distance 
+// below which compensation is unchanged (no adjustment or retract) during the 
 // travel move. The C_COMPENSATION_PROP_COMP_TRAVEL_DST sets the travel 
 // distance at and above which the the filament is fully retracted (0). 
 // Anywhere in between the compensation is changed toward 0 in proportion 
 // to the travel move distance. If you want to keep compensation unchanged 
 // during the travel moves comment out these defines. If you want compensation 
-// to retract full length of the filament regardless of the travel move (not
-// recommended) distance zero these values. M340 'Z' and 'X' can be used to 
+// to retract full length of the filament regardless of the travel move 
+// distance then zero these values. M340 'Z' and 'X' can be used to 
 // change the values on the fly. The values are configured per extruder, in mm.
-// C_COMPENSATION_NO_COMP_TRAVEL_DST (if not 0) must be less than 
+// C_COMPENSATION_NO_COMP_TRAVEL_DST must be less than or equal to 
 // C_COMPENSATION_PROP_COMP_TRAVEL_DST for the same extruder.
-#define C_COMPENSATION_NO_COMP_TRAVEL_DST { 0.6, 0.6 }
-#define C_COMPENSATION_PROP_COMP_TRAVEL_DST { 10.0, 10.0 }
+//#define C_COMPENSATION_NO_COMP_TRAVEL_DST { 0.6, 0.6 }
+//#define C_COMPENSATION_PROP_COMP_TRAVEL_DST { 10.0, 10.0 }
+
+// Disable any compensation adjustments between printing moves. When  
+// this define is enabled the firmware does not try to compensate for 
+// filament compression during printing. The compression is taken into 
+// account only when transitioning from printing to reatract&travel or 
+// or from restore&travel back to printing. This allows to use smaller 
+// retract setting in slicer. This mode can also be used with auto 
+// retract (C_COMPENSATION_AUTO_RETRACT_DST).
+//#define C_COMPENSATION_RETRACT_ONLY
 
 // Maximum allowed compensation increase in printing moves (in mm). This value 
 // prevents missing plastic at the start of the extrusion when E-speed changes
@@ -511,14 +504,14 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // melted in the hotend to start extruding at the desired rate. 
 // Note: that might eventually change to also allow slowing down printing 
 // before travelling moves requiring slowing down or stopping extrusion.
-#define C_COMPENSATION_CH_LIMIT { 0.5, 0.5 }
+//#define C_COMPENSATION_CH_LIMIT { 0.5, 0.5 }
 
 // Compensation table row index (0-based) that identifies the lowest speed 
 // C_COMPENSATION_CH_LIMIT can slow down the move to. Commenting this out 
 // will result in use of row 0 for the lowest E speed limit.
 // Note: the compensation change limit also does not allow E speed to exceed 
 // the fastest speed listed in the compensation table.
-#define C_COMPENSATION_CH_LIMIT_MIN_E_SPEED_POS 2
+//#define C_COMPENSATION_CH_LIMIT_MIN_E_SPEED_POS 2
 
 // At the end (deceleration stage) of each printing move compensation can  
 // prepare for the next move. These define allow to choose either to 
@@ -528,6 +521,10 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 #define C_COMPENSATION_NO_PUSH
 //#define C_COMPENSATION_HALF_PUSH
 //#define C_COMPENSATION_FULL_PUSH
+
+// Move on to the next block even if compensation is not yet fully adjusted 
+// (prepared for the next move). 
+//#define C_COMPENSATION_NO_WAIT
 
 // Uncomment the below define if the machine has individually controlled 
 // hotend fans. The pins for those fans have to be defined by 

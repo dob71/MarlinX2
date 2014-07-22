@@ -209,11 +209,8 @@ FORCE_INLINE float calc_speed_limit(unsigned long c, uint8_t extruder)
 }
 #endif // C_COMPENSATION_CH_LIMIT
 
-// Calculate compensation (in steps) for given (non-zero) E speeds and extruder
-FORCE_INLINE void calc_c_comp(unsigned long s1, long &c1, 
-                              unsigned long s2, long &c2, 
-                              unsigned long s3, long &c3, 
-                              uint8_t extruder)
+// Calculate compensation (in steps) for given (non-zero) E speed and extruder
+FORCE_INLINE long calc_c_comp(unsigned long s, uint8_t extruder)
 {
   float low_bound = 0;
   #ifdef C_COMPENSATION_AUTO_RETRACT_DST
@@ -221,10 +218,10 @@ FORCE_INLINE void calc_c_comp(unsigned long s1, long &c1,
   #else  // C_COMPENSATION_AUTO_RETRACT_DST
   float low_comp = 0;
   #endif // C_COMPENSATION_AUTO_RETRACT_DST
-  c1 = c2 = c3 = low_comp;
+  long c = floor(low_comp);
   for(int ii = 0; ii < gCComp_size[extruder]; ii++) 
   {
-    if(s1 < low_bound && s2 < low_bound && s3 < low_bound) {
+    if(s < low_bound) {
       break; 
     }
     float high_bound = gCComp[ii][extruder][0] * axis_steps_per_unit[E_AXIS + extruder];
@@ -236,28 +233,58 @@ FORCE_INLINE void calc_c_comp(unsigned long s1, long &c1,
     #endif // C_COMPENSATION_AUTO_RETRACT_DST
     float a = (low_comp - high_comp)/(low_bound - high_bound);
     float b = (high_bound*low_comp - low_bound*high_comp)/(high_bound - low_bound);
-    if(s2 >= low_bound && s2 < high_bound) {
-      c2 = floor(a*s2 + b);
-    } else if(s2 > high_bound) {
-      c2 = floor(high_comp);
+    if(s >= low_bound && s < high_bound) {
+      c = floor(a*s + b);
+    } else if(s > high_bound) {
+      c = floor(high_comp);
     }
-    #ifdef C_COMPENSATION_IGNORE_ACCELERATION
-    c1 = c3 = c2;
-    #else // C_COMPENSATION_IGNORE_ACCELERATION
-    if(s1 >= low_bound && s1 < high_bound) {
-      c1 = floor(a*s1 + b);
-    } else if(s1 > high_bound) {
-      c1 = floor(high_comp);
-    }
-    if(s3 >= low_bound && s3 < high_bound) {
-      c3 = floor(a*s3 + b);
-    } else if(s3 > high_bound) {
-      c3 = floor(high_comp);
-    }
-    #endif // C_COMPENSATION_IGNORE_ACCELERATION
     low_bound = high_bound;
     low_comp = high_comp;
   }
+  return c;
+}
+
+// Handle next block transition cases (i.e. requiring changing in a block 
+// when its successor is added to the queue)
+FORCE_INLINE void handle_dependent_blocks_ccomp(block_t *prev, block_t *cur)
+{
+  // Restore is a special case, reset target to next block compensation
+  if(prev->restore) 
+    prev->target_advance = prev->final_advance = cur->target_advance;
+  // For travel followed by non-travel reset final to next block compensation.
+  // For back-to-back travel moves smooth the transition by keepint the prev 
+  // final advance the same as travel move target advance (regardless of 
+  // half/full push modes).
+  if(prev->travel) {
+    if(!cur->travel)
+      prev->final_advance = cur->target_advance;
+    else 
+      prev->final_advance = prev->target_advance;
+  }
+  // For the travel move preceeded by retract reset advance to that of 
+  // retract (which should be 0).
+  // For the printing move followed by travel set printing final advance to
+  // retract distance calculated for the travel move.
+  else if(cur->travel) {
+    if(prev->retract)
+      cur->target_advance = cur->final_advance = prev->final_advance = prev->target_advance;
+    else if(!prev->non_printing)
+      prev->final_advance = cur->target_advance;
+  }
+  // Done with adjustments for non-printing moves
+  if(prev->non_printing || cur->non_printing) {
+    return;
+  }
+  // Set final compensation to prepare for the next block during printing
+#if defined(C_COMPENSATION_NO_PUSH)
+  // Nothing to do, final advance already set to be the same as target
+#elif defined(C_COMPENSATION_HALF_PUSH)
+  prev->final_advance = (prev->final_advance + cur->target_advance) >> 1;
+#elif defined(C_COMPENSATION_FULL_PUSH)
+  prev->final_advance = cur->target_advance;
+#else  // final compensation setting strategy
+  #error Define one of: C_COMPENSATION_<NO_PUSH|FULL_PUSH|HALF_PUSH>
+#endif // final compensation setting strategy
   return;
 }
 #endif // C_COMPENSATION
@@ -302,7 +329,6 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   }
 
 #ifdef C_COMPENSATION
-  long initial_advance;
   long target_advance;
   long final_advance;
   float e_factor = (float)block->steps_e / (float)block->step_event_count;
@@ -316,18 +342,16 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   prop_comp_dst = gCCom_prop_comp_dst[extruder];
   #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
   // Set filament compensation only if moving and feeding filament
-  if(!block->retract && !block->restore && !block->travel)
+  if(!block->non_printing)
   {
-    calc_c_comp(initial_rate * e_factor, initial_advance, 
-                target_rate * e_factor, target_advance, 
-                final_rate * e_factor, final_advance,
-                extruder);
+    target_advance = final_advance = 
+      calc_c_comp(target_rate * e_factor, extruder);
   }
-  #if defined(C_COMPENSATION_NO_COMP_TRAVEL_DST) || \
+  #if defined(C_COMPENSATION_NO_COMP_TRAVEL_DST) && \
       defined(C_COMPENSATION_PROP_COMP_TRAVEL_DST)
   else if(block->travel && (block->millimeters > prop_comp_dst))
   {
-    initial_advance = target_advance = 0;
+    target_advance = 0;
     #ifdef C_COMPENSATION_AUTO_RETRACT_DST
     final_advance = floor(gCCom_retr_dst[extruder] * 
                           axis_steps_per_unit[E_AXIS+extruder]);
@@ -337,10 +361,10 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   }
   else if(block->travel && (block->millimeters > no_comp_dst))
   {
-    float prop_advance = ((float)block->prev_advance) * 
-                         (block->millimeters - no_comp_dst) / 
+    float prop_advance = ((float)block->prev_target_advance) * 
+                         (prop_comp_dst - block->millimeters) / 
                          (prop_comp_dst - no_comp_dst);
-    initial_advance = target_advance = floor(prop_advance);
+    target_advance = floor(prop_advance);
     #ifdef C_COMPENSATION_AUTO_RETRACT_DST
     final_advance = floor(gCCom_retr_dst[extruder] * 
                           axis_steps_per_unit[E_AXIS+extruder]);
@@ -348,10 +372,17 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
     final_advance = target_advance;
     #endif // C_COMPENSATION_AUTO_RETRACT_DST
   }
-  #endif // NO_COMP_TRAVEL_DST or PROP_COMP_TRAVEL_DST
-  else // For all other blocks keep the compensation unchanged
+  #endif // NO_COMP_TRAVEL_DST && PROP_COMP_TRAVEL_DST
+  // For retract start with compensation unchanged, then pull out all, for
+  // restore keep compensation unchanged for now (when the next block becomes 
+  // available we'll set restore compensation to match its initial one)
+  else if(block->retract)
   {
-    initial_advance = target_advance = final_advance = block->prev_advance;
+    target_advance = final_advance = 0;
+  }
+  else // By default keep the compensation unchanged
+  {
+    target_advance = final_advance = block->prev_target_advance;
   }
 #endif // C_COMPENSATION
 
@@ -362,7 +393,6 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
     block->initial_rate = initial_rate;
     block->final_rate = final_rate;
 #ifdef C_COMPENSATION
-    block->initial_advance = initial_advance;
     block->final_advance = final_advance;
     block->target_advance = target_advance;
 #endif // C_COMPENSATION
@@ -482,11 +512,9 @@ void planner_print_plan() {
     SERIAL_ECHOPAIR(" SY:", current->steps_y);
     SERIAL_ECHOPAIR(" SE:", current->steps_e);
     #ifdef C_COMPENSATION
-    SERIAL_ECHOPAIR(" IA:", current->initial_advance);
+    SERIAL_ECHOPAIR(" IA:", current->prev_target_advance);
     SERIAL_ECHOPAIR(" TA:", current->target_advance);
     SERIAL_ECHOPAIR(" FA:", current->final_advance);
-    SERIAL_ECHOPAIR(" PA:", current->prev_advance);
-    SERIAL_ECHOPAIR(" NA:", current->next_advance);
     #endif // C_COMPENSATION
     SERIAL_ECHOLN("");
     block_index = next_block_index( block_index );
@@ -512,8 +540,10 @@ void planner_recalculate_trapezoids() {
       if (current->recalculate_flag || next->recalculate_flag) {
         #ifdef C_COMPENSATION
         if(prev) {
-          current->prev_advance = prev->final_advance;
-        } 
+          current->prev_target_advance = prev->target_advance;
+        } else {
+          current->prev_target_advance = 0;
+        }
         #endif // C_COMPENSATION
         // NOTE: Entry and exit factors always > 0 by all previous logic operations.
         calculate_trapezoid_for_block(current, current->entry_speed/current->nominal_speed,
@@ -521,12 +551,7 @@ void planner_recalculate_trapezoids() {
         current->recalculate_flag = false; // Reset current only to ensure next trapezoid is computed
         #ifdef C_COMPENSATION
         if(prev) {
-          prev->next_advance = current->initial_advance;
-          if(prev->restore) // Restore is a special case, set target to next block compensation
-            prev->target_advance = prev->final_advance = current->prev_advance = prev->next_advance;
-          // For back-to-back travel moves smooth the transition
-          if(prev->travel && current->travel) 
-            prev->final_advance = prev->next_advance;
+          handle_dependent_blocks_ccomp(prev, current);
         }
         #endif // C_COMPENSATION
       }
@@ -537,7 +562,9 @@ void planner_recalculate_trapezoids() {
   if(next != NULL) {
     #ifdef C_COMPENSATION
     if(current) {
-      next->prev_advance = current->final_advance;
+      next->prev_target_advance = current->target_advance;
+    } else {
+      next->prev_target_advance = 0;
     }
     #endif // C_COMPENSATION
     calculate_trapezoid_for_block(next, next->entry_speed/next->nominal_speed,
@@ -545,9 +572,7 @@ void planner_recalculate_trapezoids() {
     next->recalculate_flag = false;
     #ifdef C_COMPENSATION
     if(current) {
-      current->next_advance = next->initial_advance;
-      if(current->restore) // Restore is a special case, set target to next block compensation
-        current->target_advance = current->final_advance = next->prev_advance = current->next_advance;
+      handle_dependent_blocks_ccomp(current, next);
     }
     #endif // C_COMPENSATION
   }
@@ -796,6 +821,9 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   // Mark block as not busy (Not executed by the stepper interrupt)
   block->busy = false;
 
+  // clear travel, retract, restore flags
+  block->non_printing = 0; 
+
   // Number of steps for each axis
   block->steps_x = labs(target[X_AXIS]-position[X_AXIS]);
   block->steps_y = labs(target[Y_AXIS]-position[Y_AXIS]);
@@ -859,7 +887,6 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   else
   {
     if(feed_rate<minimumfeedrate) feed_rate=minimumfeedrate;
-    block->travel = false;
   } 
 
   bool no_move;
@@ -869,7 +896,6 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   delta_mm[Z_AXIS] = (target[Z_AXIS]-position[Z_AXIS])/axis_steps_per_unit[Z_AXIS];
   delta_mm[E_AXIS] = (target[E_AXIS]-position[E_AXIS])/axis_steps_per_unit[E_AXIS + extruder];
 
-  block->retract = block->restore = false;
   if ( block->steps_x <= dropsegments && block->steps_y <= dropsegments && block->steps_z <= dropsegments )
   {
     block->millimeters = fabs(delta_mm[E_AXIS]);
@@ -931,9 +957,8 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 #ifdef C_COMPENSATION
   float c_min_speed = gCCom_min_speed[extruder];
   block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * c_min_speed;
-  block->prev_advance = block->next_advance = 0;
   #ifdef C_COMPENSATION_CH_LIMIT
-  if(!block->retract && !block->restore && !block->travel && 
+  if(!block->non_printing && 
      moves_queued > 0 && last_extruder == extruder && 
      gCComp[0][extruder][0] > 0)
   {
@@ -1089,6 +1114,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
       block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * 
                                  gCCom_min_speed[extruder];
     }
+    block->prev_target_advance = block->target_advance = block->final_advance = 0;
 #endif // C_COMPENSATION
 
     // Initialize planner efficiency flags
