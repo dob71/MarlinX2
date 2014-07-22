@@ -46,6 +46,9 @@ typedef struct {
     };
   };
   #ifdef C_COMPENSATION
+    #ifdef C_COMPENSATION_AUTO_RETRACT_DST
+    bool pre_travel;                        // Flags block immediately preceeding a travel block
+    #endif // C_COMPENSATION_AUTO_RETRACT_DST
     long prev_target_advance;               // Steps ahead from previous block
     long target_advance;                    // Steps ahead during the move (at nominal speed)
     long final_advance;                     // Steps ahead at the end (won't start next till done adjusting)

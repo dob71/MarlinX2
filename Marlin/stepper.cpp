@@ -354,12 +354,6 @@ FORCE_INLINE void trapezoid_generator_reset() {
                           gCCom_max_speed[current_block->active_extruder];
   // Set the default compensation values
   advance = target_advance = current_block->target_advance;
-  #ifdef C_COMPENSATION_RETRACT_ONLY
-  // Make it look like we already advanced the filament for all printing moves
-  if(!current_block->non_printing) {
-    old_advance = advance;
-  }
-  #endif // C_COMPENSATION_RETRACT_ONLY
   final_advance = current_block->final_advance;
   if(is_last_block() || final_advance < 0) {
     final_advance = 0;
@@ -1010,10 +1004,21 @@ ISR(TIMER1_COMPA_vect)
 
   // If current block is finished, reset pointer 
   if (step_events_completed >= current_block->step_event_count) {
-    #if defined(C_COMPENSATION) && !defined(C_COMPENSATION_NO_WAIT)
-    // Make sure we finish compensating before proceeding
+    #ifdef C_COMPENSATION 
+    #ifdef C_COMPENSATION_NO_WAIT
+    // Still wait for compensation on retract/restore (even in no wait mode)
+    wait_for_comp = (old_advance != advance) && 
+                     (current_block->retract || current_block->restore);
+    #ifdef C_COMPENSATION_AUTO_RETRACT_DST
+    // Also wait for moves entering and performing travel
+    wait_for_comp |= (old_advance != advance) && 
+                      (current_block->travel || current_block->pre_travel);
+    #endif // C_COMPENSATION_AUTO_RETRACT_DST
+    #else  // C_COMPENSATION_NO_WAIT
+    // For all moves make sure we finish compensating (wait mode) 
     wait_for_comp = (old_advance != advance);  
-    #endif //C_COMPENSATION && !C_COMPENSATION_NO_WAIT
+    #endif // C_COMPENSATION_NO_WAIT
+    #endif //C_COMPENSATION
     current_block = NULL;
     plan_discard_current_block();
   }

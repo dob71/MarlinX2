@@ -266,6 +266,9 @@ FORCE_INLINE void handle_dependent_blocks_ccomp(block_t *prev, block_t *cur)
   // For the printing move followed by travel set printing final advance to
   // retract distance calculated for the travel move.
   else if(cur->travel) {
+    #ifdef C_COMPENSATION_AUTO_RETRACT_DST
+    prev->pre_travel = true;
+    #endif // C_COMPENSATION_AUTO_RETRACT_DST
     if(prev->retract)
       cur->target_advance = cur->final_advance = prev->final_advance = prev->target_advance;
     else if(!prev->non_printing)
@@ -823,6 +826,9 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   // clear travel, retract, restore flags
   block->non_printing = 0; 
+  #ifdef C_COMPENSATION_AUTO_RETRACT_DST
+  block->pre_travel = false;
+  #endif // C_COMPENSATION_AUTO_RETRACT_DST
 
   // Number of steps for each axis
   block->steps_x = labs(target[X_AXIS]-position[X_AXIS]);

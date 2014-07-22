@@ -489,15 +489,6 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 //#define C_COMPENSATION_NO_COMP_TRAVEL_DST { 0.6, 0.6 }
 //#define C_COMPENSATION_PROP_COMP_TRAVEL_DST { 10.0, 10.0 }
 
-// Disable any compensation adjustments between printing moves. When  
-// this define is enabled the firmware does not try to compensate for 
-// filament compression during printing. The compression is taken into 
-// account only when transitioning from printing to reatract&travel or 
-// or from restore&travel back to printing. This allows to use smaller 
-// retract setting in slicer. This mode can also be used with auto 
-// retract (C_COMPENSATION_AUTO_RETRACT_DST).
-//#define C_COMPENSATION_RETRACT_ONLY
-
 // Maximum allowed compensation increase in printing moves (in mm). This value 
 // prevents missing plastic at the start of the extrusion when E-speed changes
 // abruptly from low to high and too much plastic has to be compensated and 
