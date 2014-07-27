@@ -51,12 +51,11 @@ typedef struct {
     #endif // C_COMPENSATION_AUTO_RETRACT_DST
     long prev_target_advance;               // Steps ahead from previous block
     long target_advance;                    // Steps ahead during the move (at nominal speed)
-    long final_advance;                     // Steps ahead at the end (won't start next till done adjusting)
+    long final_advance;                     // Steps ahead at the end
     unsigned short advance_step_rate;       // How fast to advance in this block (when at nominal speed phase)
   #endif // C_COMPENSATION
 
   // Fields used by the motion planner to manage acceleration
-//  float speed_x, speed_y, speed_z, speed_e;        // Nominal mm/sec for each axis
   float nominal_speed;                               // The nominal speed for this block in mm/sec 
   float entry_speed;                                 // Entry speed at previous-current junction in mm/sec
   float max_entry_speed;                             // Maximum allowable junction entry speed in mm/sec

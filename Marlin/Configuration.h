@@ -504,19 +504,6 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // the fastest speed listed in the compensation table.
 //#define C_COMPENSATION_CH_LIMIT_MIN_E_SPEED_POS 2
 
-// At the end (deceleration stage) of each printing move compensation can  
-// prepare for the next move. These define allow to choose either to 
-// finish the move with final compensation unaltered, adjust to go half way 
-// to the initial compensation for the next move or finish the move only when 
-// compensation is fully adjusted for the next move.
-#define C_COMPENSATION_NO_PUSH
-//#define C_COMPENSATION_HALF_PUSH
-//#define C_COMPENSATION_FULL_PUSH
-
-// Move on to the next block even if compensation is not yet fully adjusted 
-// (prepared for the next move). 
-//#define C_COMPENSATION_NO_WAIT
-
 // Uncomment the below define if the machine has individually controlled 
 // hotend fans. The pins for those fans have to be defined by 
 // FAN0_PIN (extruder 0 fan), FAN1_PIN (extruder 1 fan), ...

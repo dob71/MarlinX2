@@ -1005,19 +1005,14 @@ ISR(TIMER1_COMPA_vect)
   // If current block is finished, reset pointer 
   if (step_events_completed >= current_block->step_event_count) {
     #ifdef C_COMPENSATION 
-    #ifdef C_COMPENSATION_NO_WAIT
-    // Still wait for compensation on retract/restore (even in no wait mode)
+    // Always wait for compensation on retract/restore
     wait_for_comp = (old_advance != advance) && 
                      (current_block->retract || current_block->restore);
     #ifdef C_COMPENSATION_AUTO_RETRACT_DST
-    // Also wait for moves entering and performing travel
+    // Wait for any travel move and move preceeding travel
     wait_for_comp |= (old_advance != advance) && 
                       (current_block->travel || current_block->pre_travel);
     #endif // C_COMPENSATION_AUTO_RETRACT_DST
-    #else  // C_COMPENSATION_NO_WAIT
-    // For all moves make sure we finish compensating (wait mode) 
-    wait_for_comp = (old_advance != advance);  
-    #endif // C_COMPENSATION_NO_WAIT
     #endif //C_COMPENSATION
     current_block = NULL;
     plan_discard_current_block();

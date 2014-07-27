@@ -278,16 +278,6 @@ FORCE_INLINE void handle_dependent_blocks_ccomp(block_t *prev, block_t *cur)
   if(prev->non_printing || cur->non_printing) {
     return;
   }
-  // Set final compensation to prepare for the next block during printing
-#if defined(C_COMPENSATION_NO_PUSH)
-  // Nothing to do, final advance already set to be the same as target
-#elif defined(C_COMPENSATION_HALF_PUSH)
-  prev->final_advance = (prev->final_advance + cur->target_advance) >> 1;
-#elif defined(C_COMPENSATION_FULL_PUSH)
-  prev->final_advance = cur->target_advance;
-#else  // final compensation setting strategy
-  #error Define one of: C_COMPENSATION_<NO_PUSH|FULL_PUSH|HALF_PUSH>
-#endif // final compensation setting strategy
   return;
 }
 #endif // C_COMPENSATION
