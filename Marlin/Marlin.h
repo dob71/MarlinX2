@@ -242,18 +242,6 @@ extern unsigned char fanSpeed[EXTRUDERS];
   extern int gCComp_max_size;
   extern float gCCom_min_speed[EXTRUDERS];
   extern float gCCom_max_speed[EXTRUDERS];
-  #ifdef C_COMPENSATION_AUTO_RETRACT_DST
-  extern float gCCom_retr_dst[EXTRUDERS];
-  #endif // C_COMPENSATION_AUTO_RETRACT_DST
-  #ifdef C_COMPENSATION_NO_COMP_TRAVEL_DST
-  extern float gCCom_no_comp_dst[EXTRUDERS];
-  #endif // C_COMPENSATION_NO_COMP_TRAVEL_DST
-  #ifdef C_COMPENSATION_PROP_COMP_TRAVEL_DST
-  extern float gCCom_prop_comp_dst[EXTRUDERS];
-  #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
-  #ifdef C_COMPENSATION_CH_LIMIT
-  extern float gCCom_ch_limit[EXTRUDERS];
-  #endif // C_COMPENSATION_CH_LIMIT
   #ifdef C_COMPENSATION_WINDOW
   extern float gCCom_window[EXTRUDERS];
   #endif // C_COMPENSATION_WINDOW

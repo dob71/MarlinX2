@@ -427,20 +427,20 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
   #endif
 #endif
 
-// Enable filament compression (bowden drive) compensation. If enabled the 
+// Enable filament compression compensation (for bowden drives). If enabled the 
 // firmware compensates for a few more mm of the filament compressed in the 
 // guiding tube when extruding at high speed vs low. The amount of the 
 // compensation is likely to depend on the plastic type and the nozzle 
 // temperature. The M340 command can be used to change the default compensation
 // table in G-code startup script for specific printing profiles.
-// M340 - Set filament compression (bowden drive) compensation table paramters. 
+// M340 - Set filament compression compensation table paramters. 
 //        P<0-N> - table entry position, S<speed> - E speed in mm/sec, 
 //        C<compensation> - length (in mm) of the filament compressed 
 //        in the guiding tube when extruding at the given speed. 
 //        The table entries should be ordered by E speed value. 
 // The number of entries in this define determines the max size of the table.
 // The compensation for speed 0mm/s is always 0mm and should not be listed.
-// For speeds higher than listed the compensation for the last entry is used.
+// For speeds higher than listed in the table firmware uses the last row value.
 // Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
 #define C_COMPENSATION  {{0.0, 0.0}, {0.0, 0.0}}, \
                         {{0.0, 0.0}, {0.0, 0.0}}, \
@@ -461,11 +461,16 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // M340 'H' can be used to adjust the value on the fly.
 #define C_COMPENSATION_MAX_SPEED { 17, 17 }
 
+// Note: compensation is adjusted using "best effort" strategy, i.e. when 
+//       compensation is calculated for a move the firmware tries to adjust 
+//       it as much as possible while performing that move then moves on 
+//       to the next one and so on.
+
 // The compensation skip window. All the short back-to-back printing moves 
 // that fit into the window will use compensation value of the first move  
 // that was fit into the window. The window is not used untill the planner 
 // buffer is half full. The window is closed by any non-printig move even if 
-// the accumulated move distance is still shorter than the window size. 
+// the accumulated moves distance is still shorter than the window size. 
 // The window is also closed if the planner buffer becomes half empty (note: 
 // several commands including extruder change wait for the buffer to be empty). 
 // The window size is configured in mm. The total distance of the printing 
@@ -474,49 +479,6 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // and do it only after retract, return or travel moves.
 // M340 'W' can be used to adjust the value on the fly.
 #define C_COMPENSATION_WINDOW { 100, 100 }
-
-// This auto-retract allows to use compensation to retract/restore filament 
-// for non-printing moves. It specifies the retract distance (in mm). If 
-// this define is used the compensation will automatically retract the  
-// specified length of the filament to prevent oozing while traveling 
-// (you will have to disable retract/restore in slicer). Using firmware 
-// to calculate retract/restore allows to optimize the moves for adjusting 
-// the excess of the filament pushed into the hotend. If the compensation 
-// is properly configured the retract distance here should be smaller 
-// than that used in slicer (but slicer can skip retracts inside object). 
-// M340 'R' can be used to change the value on the fly. 
-//#define C_COMPENSATION_AUTO_RETRACT_DST { 0.0, 0.0 }
-
-// The setting below can be used to minimize compensation changes for short 
-// travel moves. The C_COMPENSATION_NO_COMP_TRAVEL_DST sets the travel distance 
-// below which compensation is unchanged (no adjustment or retract) during the 
-// travel move. The C_COMPENSATION_PROP_COMP_TRAVEL_DST sets the travel 
-// distance at and above which the the filament is fully retracted (0). 
-// Anywhere in between the compensation is changed toward 0 in proportion 
-// to the travel move distance. If you want to keep compensation unchanged 
-// during the travel moves comment out these defines. If you want compensation 
-// to retract full length of the filament regardless of the travel move 
-// distance then zero these values. M340 'Z' and 'X' can be used to 
-// change the values on the fly. The values are configured per extruder, in mm.
-// C_COMPENSATION_NO_COMP_TRAVEL_DST must be less than or equal to 
-// C_COMPENSATION_PROP_COMP_TRAVEL_DST for the same extruder.
-//#define C_COMPENSATION_NO_COMP_TRAVEL_DST { 0.6, 0.6 }
-//#define C_COMPENSATION_PROP_COMP_TRAVEL_DST { 10.0, 10.0 }
-
-// Maximum allowed compensation increase in printing moves (in mm). This value 
-// prevents missing plastic at the start of the extrusion when E-speed changes
-// abruptly from low to high and too much plastic has to be compensated and 
-// melted in the hotend to start extruding at the desired rate. 
-// Note: that might eventually change to also allow slowing down printing 
-// before travelling moves requiring slowing down or stopping extrusion.
-//#define C_COMPENSATION_CH_LIMIT { 0.5, 0.5 }
-
-// Compensation table row index (0-based) that identifies the lowest speed 
-// C_COMPENSATION_CH_LIMIT can slow down the move to. Commenting this out 
-// will result in use of row 0 for the lowest E speed limit.
-// Note: the compensation change limit also does not allow E speed to exceed 
-// the fastest speed listed in the compensation table.
-//#define C_COMPENSATION_CH_LIMIT_MIN_E_SPEED_POS 2
 
 // Uncomment the below define if the machine has individually controlled 
 // hotend fans. The pins for those fans have to be defined by 

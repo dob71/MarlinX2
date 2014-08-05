@@ -1008,11 +1008,6 @@ ISR(TIMER1_COMPA_vect)
     // Always wait for compensation on retract/restore
     wait_for_comp = (old_advance != advance) && 
                      (current_block->retract || current_block->restore);
-    #ifdef C_COMPENSATION_AUTO_RETRACT_DST
-    // Wait for any travel move and move preceeding travel
-    wait_for_comp |= (old_advance != advance) && 
-                      (current_block->travel || current_block->pre_travel);
-    #endif // C_COMPENSATION_AUTO_RETRACT_DST
     #endif //C_COMPENSATION
     current_block = NULL;
     plan_discard_current_block();
