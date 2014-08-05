@@ -37,7 +37,7 @@ typedef struct {
   long acceleration_rate;                   // The acceleration rate used for acceleration calculation
   unsigned char direction_bits;             // The direction bit set for this block (refers to *_DIRECTION_BIT in config.h)
   unsigned char active_extruder;            // Selects the active extruder
-  union {
+  union { // TODO: turn all those booleans into flags
     long non_printing;                      // Should cover all 3 below (at least for Arduino)
     struct {
       bool retract;                         // Identified as retract move block (not yet used)
@@ -49,6 +49,7 @@ typedef struct {
     #ifdef C_COMPENSATION_AUTO_RETRACT_DST
     bool pre_travel;                        // Flags block immediately preceeding a travel block
     #endif // C_COMPENSATION_AUTO_RETRACT_DST
+    bool ignore_ccomp;                      // Ignore compensation calculation for this block
     long prev_target_advance;               // Steps ahead from previous block
     long target_advance;                    // Steps ahead during the move (at nominal speed)
     long final_advance;                     // Steps ahead at the end

@@ -229,6 +229,9 @@ float extruder_offset[2][EXTRUDERS] = {
   float gCCom_ch_limit[EXTRUDERS] = C_COMPENSATION_CH_LIMIT;
   float gCCom_low_e_limit[EXTRUDERS];
   #endif // C_COMPENSATION_CH_LIMIT
+  #ifdef C_COMPENSATION_WINDOW
+  float gCCom_window[EXTRUDERS] = C_COMPENSATION_WINDOW;
+  #endif // C_COMPENSATION_WINDOW
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
@@ -2039,6 +2042,11 @@ void process_commands()
         gCCom_ch_limit[tmp_extruder] = code_value();
       }
       #endif // C_COMPENSATION_CH_LIMIT
+      #ifdef C_COMPENSATION_WINDOW
+      if(code_seen('W')) {
+        gCCom_window[tmp_extruder] = code_value();
+      }
+      #endif // C_COMPENSATION_WINDOW
       
       // Print the compensation table
       SERIAL_ECHO_START;
@@ -2059,6 +2067,9 @@ void process_commands()
       #ifdef C_COMPENSATION_CH_LIMIT
       SERIAL_ECHOPAIR(" E:", gCCom_ch_limit[tmp_extruder]);
       #endif // C_COMPENSATION_CH_LIMIT
+      #ifdef C_COMPENSATION_WINDOW
+      SERIAL_ECHOPAIR(" W:", gCCom_window[tmp_extruder]);
+      #endif // C_COMPENSATION_WINDOW
       SERIAL_ECHOLN("");
       for(pos = 0; pos < gCComp_size[tmp_extruder]; pos++) 
       {

@@ -254,6 +254,9 @@ extern unsigned char fanSpeed[EXTRUDERS];
   #ifdef C_COMPENSATION_CH_LIMIT
   extern float gCCom_ch_limit[EXTRUDERS];
   #endif // C_COMPENSATION_CH_LIMIT
+  #ifdef C_COMPENSATION_WINDOW
+  extern float gCCom_window[EXTRUDERS];
+  #endif // C_COMPENSATION_WINDOW
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT

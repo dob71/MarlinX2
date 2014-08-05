@@ -108,6 +108,12 @@ static unsigned char old_direction_bits = 0;               // Old direction bits
 static long x_segment_time[3]={MAX_FREQ_TIME + 1,0,0};     // Segment times (in us). Used for speed calculations
 static long y_segment_time[3]={MAX_FREQ_TIME + 1,0,0};
 #endif
+#ifdef C_COMPENSATION
+#ifdef C_COMPENSATION_WINDOW
+static float window_acc_dst;
+static unsigned char window_count;
+#endif // C_COMPENSATION_WINDOW
+#endif // C_COMPENSATION
 
 // Returns the index of the next block in the ring buffer
 // NOTE: Removed modulo (%) operator, which uses an expensive divide and multiplication.
@@ -335,7 +341,7 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   prop_comp_dst = gCCom_prop_comp_dst[extruder];
   #endif // C_COMPENSATION_PROP_COMP_TRAVEL_DST
   // Set filament compensation only if moving and feeding filament
-  if(!block->non_printing)
+  if(!block->non_printing && !block->ignore_ccomp)
   {
     target_advance = final_advance = 
       calc_c_comp(target_rate * e_factor, extruder);
@@ -814,11 +820,12 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   // Mark block as not busy (Not executed by the stepper interrupt)
   block->busy = false;
 
-  // clear travel, retract, restore flags
+  // clear travel, retract, restore flags 
   block->non_printing = 0; 
   #ifdef C_COMPENSATION_AUTO_RETRACT_DST
   block->pre_travel = false;
   #endif // C_COMPENSATION_AUTO_RETRACT_DST
+  block->ignore_ccomp = false;
 
   // Number of steps for each axis
   block->steps_x = labs(target[X_AXIS]-position[X_AXIS]);
@@ -1129,6 +1136,26 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     }
     block->recalculate_flag = true; // Always calculate trapezoid for new block
   }
+
+#if defined(C_COMPENSATION) && defined(C_COMPENSATION_WINDOW)
+  // If the buffer at least half full consider ignoring compensation
+  // calculation for the short move printing blocks.
+  if(moves_queued >= (BLOCK_BUFFER_SIZE >> 1) && !block->non_printing) {
+    // If extruder has changes we work through all the buffered blocks first,
+    // so no need to have a special case for that here.
+    window_acc_dst += block->millimeters;
+    window_count++;
+    if(window_acc_dst < gCCom_window[extruder]) {
+      block->ignore_ccomp = (window_count > 1);
+    } else {
+      window_acc_dst = 0;
+      window_count = 0;
+    }
+  } else {
+    window_acc_dst = 0;
+    window_count = 0;
+  }
+#endif // C_COMPENSATION && C_COMPENSATION_WINDOW
   
   calculate_trapezoid_for_block(block, block->entry_speed/block->nominal_speed,
                                 safe_speed/block->nominal_speed);

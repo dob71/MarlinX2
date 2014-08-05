@@ -461,6 +461,20 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // M340 'H' can be used to adjust the value on the fly.
 #define C_COMPENSATION_MAX_SPEED { 17, 17 }
 
+// The compensation skip window. All the short back-to-back printing moves 
+// that fit into the window will use compensation value of the first move  
+// that was fit into the window. The window is not used untill the planner 
+// buffer is half full. The window is closed by any non-printig move even if 
+// the accumulated move distance is still shorter than the window size. 
+// The window is also closed if the planner buffer becomes half empty (note: 
+// several commands including extruder change wait for the buffer to be empty). 
+// The window size is configured in mm. The total distance of the printing 
+// moves is used to match against the the window size. The very large window 
+// can be used to eliminate compensation changes between the printing moves 
+// and do it only after retract, return or travel moves.
+// M340 'W' can be used to adjust the value on the fly.
+#define C_COMPENSATION_WINDOW { 100, 100 }
+
 // This auto-retract allows to use compensation to retract/restore filament 
 // for non-printing moves. It specifies the retract distance (in mm). If 
 // this define is used the compensation will automatically retract the  
