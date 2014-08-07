@@ -45,7 +45,7 @@
 #include <SPI.h>
 #endif
 
-#define VERSION_STRING  "1.1.0 X2 Beta 1"
+#define VERSION_STRING  "1.1.1 X2 Beta 1"
 
 // look here for descriptions of gcodes: http://linuxcnc.org/handbook/gcode/g-code.html
 // http://objects.reprap.org/wiki/Mendel_User_Manual:_RepRapGCodes
