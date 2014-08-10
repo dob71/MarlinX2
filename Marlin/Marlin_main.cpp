@@ -212,6 +212,8 @@ float extruder_offset[2][EXTRUDERS] = {
 
 #ifdef C_COMPENSATION
   float gCComp[][EXTRUDERS][2] = { C_COMPENSATION };
+  float gCComp_ab[][EXTRUDERS][2] = { C_COMPENSATION };
+  float gCComp_hb[][EXTRUDERS][2] = { C_COMPENSATION };
   int gCComp_size[EXTRUDERS];
   int gCComp_max_size = sizeof(gCComp) / ((EXTRUDERS * sizeof(float)) << 1);
   float gCCom_min_speed[EXTRUDERS] = C_COMPENSATION_MIN_SPEED;
@@ -390,6 +392,28 @@ void suicide()
   #endif
 }
 
+#ifdef C_COMPENSATION
+static void precalc_comp_values(unsigned char extruder)
+{
+  float low_bound = 0;
+  float low_comp = 0;
+  for(int ii = 0; ii < gCComp_size[extruder]; ii++) 
+  {
+    float high_bound = gCComp[ii][extruder][0] * axis_steps_per_unit[E_AXIS + extruder];
+    float high_comp = gCComp[ii][extruder][1] * axis_steps_per_unit[E_AXIS + extruder];
+    float a = (low_comp - high_comp)/(low_bound - high_bound);
+    float b = (high_bound*low_comp - low_bound*high_comp)/(high_bound - low_bound);
+    gCComp_ab[ii][extruder][0] = a;
+    gCComp_ab[ii][extruder][1] = b;
+    gCComp_hb[ii][extruder][0] = high_bound;
+    gCComp_hb[ii][extruder][1] = high_comp;
+    low_bound = high_bound;
+    low_comp = high_comp;
+  }
+  return;
+}
+#endif // C_COMPENSATION
+
 void setup()
 {
   setup_killpin(); 
@@ -437,6 +461,7 @@ void setup()
         size < gCComp_max_size && gCComp[size][e][0] > 0.0;
         size++);
     gCComp_size[e] = size;
+    precalc_comp_values(e);
   }
   #endif // C_COMPENSATION
   
@@ -2002,6 +2027,7 @@ void process_commands()
             size < gCComp_max_size && gCComp[size][tmp_extruder][0] > 0.0;
             size++);
         gCComp_size[tmp_extruder] = size;
+        precalc_comp_values(tmp_extruder);
       }
       if(code_seen('L')) {
         gCCom_min_speed[tmp_extruder] = code_value();

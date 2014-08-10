@@ -186,12 +186,10 @@ FORCE_INLINE long calc_c_comp(unsigned long s, uint8_t extruder)
     if(s < low_bound) {
       break; 
     }
-    float high_bound = gCComp[ii][extruder][0] * axis_steps_per_unit[E_AXIS + extruder];
-    float high_comp = gCComp[ii][extruder][1] * axis_steps_per_unit[E_AXIS + extruder];
-    float a = (low_comp - high_comp)/(low_bound - high_bound);
-    float b = (high_bound*low_comp - low_bound*high_comp)/(high_bound - low_bound);
+    float high_bound = gCComp_hb[ii][extruder][0];
+    float high_comp = gCComp_hb[ii][extruder][1];
     if(s >= low_bound && s < high_bound) {
-      c = floor(a*s + b);
+      c = floor(gCComp_ab[ii][extruder][0]*s + gCComp_ab[ii][extruder][1]);
     } else if(s > high_bound) {
       c = floor(high_comp);
     }
