@@ -360,7 +360,7 @@ FORCE_INLINE void trapezoid_generator_reset() {
   }
   // For restore see if we can adjust the amount of the filament restored  
   // to achieve the desired compensation
-  if(current_block->restore && old_advance > advance) {
+  if(IS_RESTORE(current_block) && old_advance > advance) {
     long d = old_advance - advance;
     if(current_block->steps_e > d) {
       current_block->steps_e -= d;
@@ -981,7 +981,7 @@ ISR(TIMER1_COMPA_vect)
     advance = final_advance;
     // If retracting/returning increase the compensation speed as 
     // the normal move rate goes down. 
-    if((current_block->retract || current_block->restore) && 
+    if((IS_RETRACT(current_block) || IS_RESTORE(current_block)) && 
        step_rate < acc_step_rate)
     {
       unsigned short new_advance_step_rate = current_block->advance_step_rate + 
@@ -1007,7 +1007,7 @@ ISR(TIMER1_COMPA_vect)
     #ifdef C_COMPENSATION 
     // Always wait for compensation on retract/restore
     wait_for_comp = (old_advance != advance) && 
-                     (current_block->retract || current_block->restore);
+                     (IS_RETRACT(current_block) || IS_RESTORE(current_block));
     #endif //C_COMPENSATION
     current_block = NULL;
     plan_discard_current_block();

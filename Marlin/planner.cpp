@@ -204,14 +204,14 @@ FORCE_INLINE long calc_c_comp(unsigned long s, uint8_t extruder)
 FORCE_INLINE void handle_dependent_blocks_ccomp(block_t *prev, block_t *cur)
 {
   // Restore is a special case, reset target to next block compensation
-  if(prev->restore) 
+  if(IS_RESTORE(prev)) 
     prev->target_advance = prev->final_advance = cur->target_advance;
   // For travel followed by non-travel reset final to next block compensation.
   // For back-to-back travel moves smooth the transition by keepint the prev 
   // final advance the same as travel move target advance (regardless of 
   // half/full push modes).
-  if(prev->travel) {
-    if(!cur->travel)
+  if(IS_TRAVEL(prev)) {
+    if(!IS_TRAVEL(cur))
       prev->final_advance = cur->target_advance;
     else 
       prev->final_advance = prev->target_advance;
@@ -220,15 +220,11 @@ FORCE_INLINE void handle_dependent_blocks_ccomp(block_t *prev, block_t *cur)
   // retract (which should be 0).
   // For the printing move followed by travel set printing final advance to
   // retract distance calculated for the travel move.
-  else if(cur->travel) {
-    if(prev->retract)
+  else if(IS_TRAVEL(cur)) {
+    if(IS_RETRACT(prev))
       cur->target_advance = cur->final_advance = prev->final_advance = prev->target_advance;
-    else if(!prev->non_printing)
+    else if(IS_PRINTING(prev))
       prev->final_advance = cur->target_advance;
-  }
-  // Done with adjustments for non-printing moves
-  if(prev->non_printing || cur->non_printing) {
-    return;
   }
   return;
 }
@@ -281,7 +277,7 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   float prop_comp_dst = 0.0;
   uint8_t extruder = block->active_extruder;
   // Set filament compensation only if moving and feeding filament
-  if(!block->non_printing && !block->ignore_ccomp)
+  if(IS_PRINTING(block) && !IS_IGNORECC(block))
   {
     target_advance = final_advance = 
       calc_c_comp(target_rate * e_factor, extruder);
@@ -289,7 +285,7 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   // For retract start with compensation unchanged, then pull out all, for
   // restore keep compensation unchanged for now (when the next block becomes 
   // available we'll set restore compensation to match its initial one)
-  else if(block->retract)
+  else if(IS_RETRACT(block))
   {
     target_advance = final_advance = 0;
   }
@@ -734,11 +730,8 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   // Mark block as not busy (Not executed by the stepper interrupt)
   block->busy = false;
 
-  // clear travel, retract, restore flags 
-  block->non_printing = 0; 
-  #ifdef C_COMPENSATION
-  block->ignore_ccomp = false;
-  #endif // C_COMPENSATION
+  // clear all flags 
+  block->flags = 0;
 
   // Number of steps for each axis
   block->steps_x = labs(target[X_AXIS]-position[X_AXIS]);
@@ -798,7 +791,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   if (block->steps_e == 0)
   {
     if(feed_rate<mintravelfeedrate) feed_rate=mintravelfeedrate;
-    block->travel = true;
+    SET_TRAVEL(block);
   }
   else
   {
@@ -819,10 +812,10 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     // If retracting/returning mark the block as such
     if(block->steps_e != 0) {
       if((block->direction_bits & (1<<E_AXIS)) != 0) {
-        block->retract = true;
+        SET_RETRACT(block);
       }
       else {
-        block->restore = true;
+        SET_RESTORE(block);
       }
     }
   } 
@@ -1037,13 +1030,15 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 #if defined(C_COMPENSATION) && defined(C_COMPENSATION_WINDOW)
   // If the buffer at least half full consider ignoring compensation
   // calculation for the short move printing blocks.
-  if(moves_queued >= (BLOCK_BUFFER_SIZE >> 1) && !block->non_printing) {
+  if(moves_queued >= (BLOCK_BUFFER_SIZE >> 1) && IS_PRINTING(block)) {
     // If extruder has changes we work through all the buffered blocks first,
     // so no need to have a special case for that here.
     window_acc_dst += block->millimeters;
     window_count++;
     if(window_acc_dst < gCCom_window[extruder]) {
-      block->ignore_ccomp = (window_count > 1);
+      if(window_count > 1) {
+        SET_IGNORECC(block);
+      }
     } else {
       window_acc_dst = 0;
       window_count = 0;

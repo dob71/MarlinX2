@@ -36,17 +36,13 @@ typedef struct {
   long decelerate_after;                    // The index of the step event on which to start decelerating
   long acceleration_rate;                   // The acceleration rate used for acceleration calculation
   unsigned char direction_bits;             // The direction bit set for this block (refers to *_DIRECTION_BIT in config.h)
+
+  // Housekeeping
   unsigned char active_extruder;            // Selects the active extruder
-  union { // TODO: turn all those booleans into flags
-    long non_printing;                      // Should cover all 3 below (at least for Arduino)
-    struct {
-      bool retract;                         // Identified as retract move block (not yet used)
-      bool restore;                         // Identified as return move block
-      bool travel;                          // Identified as travel move block
-    };
-  };
+  unsigned short flags;                     // Block flags (see below) 
+  
+  // Compensation calculations
   #ifdef C_COMPENSATION
-    bool ignore_ccomp;                      // Ignore compensation calculation for this block
     long prev_target_advance;               // Steps ahead from previous block
     long target_advance;                    // Steps ahead during the move (at nominal speed)
     long final_advance;                     // Steps ahead at the end
@@ -70,6 +66,29 @@ typedef struct {
   unsigned char fan_speed;                           // fan speed at the block
   volatile char busy;
 } block_t;
+
+// Block flags
+#define B_FL_TRAVEL     0x0001 // Travle block (no E moves)
+#define B_FL_RETRACT    0x0002 // Retract (only E-move to pull filament out)
+#define B_FL_RESTORE    0x0004 // Restore (only E-move to push filament in)
+#define B_FL_IGNORECC   0x0008 // Skip compression compensation for the block
+
+// Macros for setting/clearing/checking the flags
+#define IS_TRAVEL(b) ((b)->flags & B_FL_TRAVEL)
+#define IS_RETRACT(b) ((b)->flags & B_FL_RETRACT)
+#define IS_RESTORE(b) ((b)->flags & B_FL_RESTORE)
+#define IS_IGNORECC(b) ((b)->flags & B_FL_IGNORECC)
+#define IS_PRINTING(b) (!((b)->flags & (B_FL_TRAVEL|B_FL_RETRACT|B_FL_RESTORE)))
+
+#define SET_TRAVEL(b) ((b)->flags |= B_FL_TRAVEL)
+#define SET_RETRACT(b) ((b)->flags |= B_FL_RETRACT)
+#define SET_RESTORE(b) ((b)->flags |= B_FL_RESTORE)
+#define SET_IGNORECC(b) ((b)->flags |= B_FL_IGNORECC)
+
+#define CLR_TRAVEL(b) ((b)->flags &= ~B_FL_TRAVEL)
+#define CLR_RETRACT(b) ((b)->flags &= ~B_FL_RETRACT)
+#define CLR_RESTORE(b) ((b)->flags &= ~B_FL_RESTORE)
+#define CLR_IGNORECC(b) ((b)->flags &= ~B_FL_IGNORECC)
 
 // Initialize the motion plan subsystem      
 void plan_init();
