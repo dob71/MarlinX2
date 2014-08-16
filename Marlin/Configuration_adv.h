@@ -16,7 +16,6 @@
 //#define WATCH_TEMP_PERIOD 40000 //40 seconds
 //#define WATCH_TEMP_INCREASE 10  //Heat up at least 10 degree in 20 seconds
 
-
 #ifdef PIDTEMP
   // this adds an experimental additional term to the heatingpower, proportional to the extrusion speed.
   // if Kc is choosen well, the additional required power due to increased melting should be compensated.
@@ -25,7 +24,6 @@
     #define  DEFAULT_Kc (1) //heatingpower=Kc*(e_speed)
   #endif
 #endif
-
 
 //automatic temperature: The hot end target temperature is calculated by all the buffered lines of gcode.
 //The maximum buffered steps/sec of the extruder motor are called "se".

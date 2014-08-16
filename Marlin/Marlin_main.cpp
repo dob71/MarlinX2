@@ -121,6 +121,7 @@
 // M221 - S<factor in percent>- set extrude factor override percentage
 // M240 - Trigger a camera to take a photograph
 // M301 - Set PID parameters P I D and R (PID active range)
+// M300 - Play beepsound S<frequency Hz> P<duration ms>
 // M302 - Allow cold extrudes
 // M303 - PID relay autotune S<temperature> sets the target temperature. (default target temperature = 150C)
 // M304 - Set bed PID parameters P I and D
@@ -147,6 +148,7 @@
 // M600 - Pause for filament change X[pos] Y[pos] Z[relative lift] E[initial retract] L[later retract distance for removal]
 // M907 - Set digital trimpot motor current using axis codes.
 // M908 - Control digital trimpot directly.
+// M928 - Start SD logging (M928 filename.g) - ended by M29
 // M999 - Restart after being stopped by error
 
 // T<NUM> [F<NUM>] [S<NUM>] - change the extruder, the feedrate might be set 
@@ -465,6 +467,7 @@ void setup()
   }
   #endif // C_COMPENSATION
   
+  // loads data from EEPROM if available else uses defaults
   Config_RetrieveSettings(); // loads data from EEPROM if available
 
   tp_init();    // Initialize temperature loop 
@@ -475,6 +478,10 @@ void setup()
   
   lcd_init();
 
+#ifdef CONTROLLERFAN_PIN
+  SET_OUTPUT(CONTROLLERFAN_PIN); //Set pin used for driver cooling fan
+#endif
+  
   { /* Give it 1/2 of a second to accumulate temperature readings */
      unsigned long m = millis();
      while(millis() - m < 500) {
@@ -535,7 +542,14 @@ void loop()
       if(strstr_P(cmdbuffer[bufindr], PSTR("M29")) == NULL)
       {
         card.write_command(cmdbuffer[bufindr]);
-        SERIAL_PROTOCOLLNPGM(MSG_OK);
+        if(card.logging)
+        {
+          process_commands();
+        }
+        else
+        {
+          SERIAL_PROTOCOLLNPGM(MSG_OK);
+        }
       }
       else
       {
@@ -1169,6 +1183,15 @@ void process_commands()
         card.removeFile(strchr_pointer + 4);
       }
       break;
+    case 928: //M928 - Start SD write
+      starpos = (strchr(strchr_pointer + 5,'*'));
+      if(starpos != NULL){
+        char* npos = strchr(cmdbuffer[bufindr], 'N');
+        strchr_pointer = strchr(npos,' ') + 1;
+        *(starpos-1) = '\0';
+      }
+      card.openLogFile(strchr_pointer+5);
+      break;
 #endif //SDSUPPORT
 
     case 31: //M31 take time since the start of the SD print or an M109 command
@@ -1793,13 +1816,27 @@ void process_commands()
       #endif
     }
     break;
-      
+
+    #if defined(LARGE_FLASH) && LARGE_FLASH == true && defined(BEEPER) && BEEPER > -1
+    case 300: // M300
+    {
+      int beepS = 1;
+      int beepP = 1000;
+      if(code_seen('S')) beepS = code_value();
+      if(code_seen('P')) beepP = code_value();
+      tone(BEEPER, beepS);
+      delay(beepP);
+      noTone(BEEPER);
+    }
+    break;
+    #endif // M300
+
     #ifdef PIDTEMP
     case 301: // M301
       {
         if(code_seen('P')) Kp = code_value();
-        if(code_seen('I')) Ki = code_value()*PID_dT;
-        if(code_seen('D')) Kd = code_value()/PID_dT;
+        if(code_seen('I')) Ki = scalePID_i(code_value());
+        if(code_seen('D')) Kd = scalePID_d(code_value());
         #ifdef PID_ADD_EXTRUSION_RATE
         if(code_seen('C')) Kc = code_value();
         #endif
@@ -1811,16 +1848,17 @@ void process_commands()
         SERIAL_PROTOCOL(" p:");
         SERIAL_PROTOCOL(Kp);
         SERIAL_PROTOCOL(" i:");
-        SERIAL_PROTOCOL(Ki/PID_dT);
+        SERIAL_PROTOCOL(unscalePID_i(Ki));
         SERIAL_PROTOCOL(" d:");
-        SERIAL_PROTOCOL(Kd*PID_dT);
+        SERIAL_PROTOCOL(unscalePID_d(Kd));
         #ifdef PID_FUNCTIONAL_RANGE
         SERIAL_PROTOCOL(" r:");
         SERIAL_PROTOCOL(Kr);
         #endif
         #ifdef PID_ADD_EXTRUSION_RATE
         SERIAL_PROTOCOL(" c:");
-        SERIAL_PROTOCOL(Kc*PID_dT);
+        //Kc does not have scaling applied above, or in resetting defaults
+        SERIAL_PROTOCOL(Kc);
         #endif
         SERIAL_PROTOCOLLN("");
       }
@@ -1830,16 +1868,17 @@ void process_commands()
     case 304: // M304
       {
         if(code_seen('P')) bedKp = code_value();
-        if(code_seen('I')) bedKi = code_value()*PID_dT;
-        if(code_seen('D')) bedKd = code_value()/PID_dT;
+        if(code_seen('I')) bedKi = scalePID_i(code_value());
+        if(code_seen('D')) bedKd = scalePID_d(code_value());
+
         updatePID();
         SERIAL_PROTOCOL(MSG_OK);
         SERIAL_PROTOCOL(" p:");
         SERIAL_PROTOCOL(bedKp);
         SERIAL_PROTOCOL(" i:");
-        SERIAL_PROTOCOL(bedKi/PID_dT);
+        SERIAL_PROTOCOL(unscalePID_i(bedKi));
         SERIAL_PROTOCOL(" d:");
-        SERIAL_PROTOCOL(bedKd*PID_dT);
+        SERIAL_PROTOCOL(unscalePID_d(bedKd));
         SERIAL_PROTOCOLLN("");
       }
       break;

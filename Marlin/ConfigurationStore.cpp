@@ -402,13 +402,16 @@ void Config_ResetDefault()
 #endif
 #ifdef PIDTEMP
     Kp = DEFAULT_Kp;
-    Ki = (DEFAULT_Ki*PID_dT);
-    Kd = (DEFAULT_Kd/PID_dT);
+    Ki = scalePID_i(DEFAULT_Ki);
+    Kd = scalePID_d(DEFAULT_Kd);
+    // call updatePID (similar to when we have processed M301)
+    updatePID();
 #ifdef PID_ADD_EXTRUSION_RATE
     Kc = DEFAULT_Kc;
 #endif//PID_ADD_EXTRUSION_RATE
 #endif//PIDTEMP
+
     SERIAL_ECHO_START;
-    SERIAL_ECHOLN("Using Default settings:");
+    SERIAL_ECHOLNPGM("Using Default settings:");
     Config_PrintSettings();
 }
