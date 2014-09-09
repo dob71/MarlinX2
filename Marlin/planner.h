@@ -127,6 +127,10 @@ extern float mintravelfeedrate;
     extern float autotemp_factor;
 #endif
 
+#ifdef ULTIPANEL
+extern bool lcd_status_update_on_idle;
+#endif // ULTIPANEL
+
 extern block_t block_buffer[BLOCK_BUFFER_SIZE];            // A ring buffer for motion instfructions
 extern volatile unsigned char block_buffer_head;           // Index of the next block to be pushed
 extern volatile unsigned char block_buffer_tail; 
@@ -153,10 +157,7 @@ FORCE_INLINE block_t *plan_get_current_block()
 // Returns true if there are blocks to process
 FORCE_INLINE bool blocks_queued() 
 {
-  if (block_buffer_head == block_buffer_tail) { 
-    return false; 
-  }
-  return true;
+  return (block_buffer_head != block_buffer_tail);
 }
 
 // Returns true if there is only one block in the queue

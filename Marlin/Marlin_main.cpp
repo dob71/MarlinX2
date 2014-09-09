@@ -395,7 +395,7 @@ void suicide()
 }
 
 #ifdef C_COMPENSATION
-static void precalc_comp_values(unsigned char extruder)
+void precalc_comp_values(unsigned char extruder)
 {
   float low_bound = 0;
   float low_comp = 0;

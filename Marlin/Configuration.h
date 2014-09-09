@@ -95,7 +95,7 @@
 
 // Actual temperature must be close to target for this long before M109 returns success
 #define TEMP_RESIDENCY_TIME 30  // (seconds)
-#define TEMP_WINDOW 3           // (C) range of +/- temperatures considered "close" enough to the target one 
+#define TEMP_WINDOW 2           // (C) range of +/- temperatures considered "close" enough to the target one 
                                 // (i.e. M109 will consider the temp reached if withing that range)
 #define TEMP_WINDOW_BED 2       // (C) range of +/- temperatures considered "close" enough for bed
 
@@ -387,8 +387,8 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 
 //LCD and SD support
 //#define ULTRA_LCD  //general lcd support, also 16x2
-#define DOGLCD	   // Support for SPI LCD 128x64 (Controller ST7565R graphic Display Family)
-#define SDSUPPORT // Enable SD Card Support in Hardware Console
+//#define DOGLCD	   // Support for SPI LCD 128x64 (Controller ST7565R graphic Display Family)
+//#define SDSUPPORT  // Enable SD Card Support in Hardware Console
 
 //#define ULTIMAKERCONTROLLER //as available from the ultimaker online store.
 //#define ULTIPANEL  //the ultipanel as on thingiverse
@@ -426,7 +426,7 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 
 #define ABS_PREHEAT_HOTEND_TEMP 220
 #define ABS_PREHEAT_HPB_TEMP 110
-#define ABS_PREHEAT_FAN_SPEED 100		// Insert Value between 0 and 255
+#define ABS_PREHEAT_FAN_SPEED 70		   // Insert Value between 0 and 255
 
 #ifdef ULTIPANEL
 //  #define NEWPANEL  //enable this if you have a click-encoder panel

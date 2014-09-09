@@ -114,30 +114,26 @@ static float window_acc_dst;
 static unsigned char window_count;
 #endif // C_COMPENSATION_WINDOW
 #endif // C_COMPENSATION
-
-// Returns the index of the next block in the ring buffer
-// NOTE: Removed modulo (%) operator, which uses an expensive divide and multiplication.
-static int8_t next_block_index(int8_t block_index) {
-  block_index++;
-  if (block_index == BLOCK_BUFFER_SIZE) { 
-    block_index = 0; 
-  }
-  return(block_index);
-}
-
-
-// Returns the index of the previous block in the ring buffer
-static int8_t prev_block_index(int8_t block_index) {
-  if (block_index == 0) { 
-    block_index = BLOCK_BUFFER_SIZE; 
-  }
-  block_index--;
-  return(block_index);
-}
+#ifdef SLOWDOWN
+static unsigned char prev_moves_queued = 0;
+#endif // SLOWDOWN
+#ifdef ULTIPANEL
+bool lcd_status_update_on_idle = false;
+#endif // ULTIPANEL
 
 //===========================================================================
 //=============================functions         ============================
 //===========================================================================
+
+// Returns the index of the next block in the ring buffer
+FORCE_INLINE int8_t next_block_index(int8_t block_index) {
+  return ((block_index + 1) & (BLOCK_BUFFER_SIZE - 1));
+}
+
+// Returns the index of the previous block in the ring buffer
+FORCE_INLINE int8_t prev_block_index(int8_t block_index) {
+  return ((block_index - 1) & (BLOCK_BUFFER_SIZE - 1));
+}
 
 // Calculates the distance (not time) it takes to accelerate from initial_rate to target_rate using the 
 // given acceleration:
@@ -679,7 +675,11 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   {
     manage_heater(); 
     manage_inactivity(); 
+    #ifdef ULTIPANEL
+    LCD_MESSAGEPGM(MSG_PRINTING MSG_BUF_FULL);
+    lcd_status_update_on_idle = true;
     lcd_update();
+    #endif // ULTIPANEL
   }
   
   // The target position of the tool in absolute steps
@@ -829,23 +829,32 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   float inverse_second = feed_rate * inverse_millimeters;
   int moves_queued = num_blocks_queued();
 
-#ifdef SLOWDOWN
-  // Slow down only moves that are not retracting/returning and not moving Z
-  if(delta_mm[E_AXIS]!=0 && delta_mm[Z_AXIS]==0 && (delta_mm[X_AXIS]!=0 || delta_mm[Y_AXIS]!=0)) 
+  // If buffer is still filled in, but getting lower than 50%
+  if ((moves_queued > 1) && (moves_queued < (BLOCK_BUFFER_SIZE >> 1)))
   {
-    //  segment time im micro seconds
-    unsigned long segment_time = lround(1000000.0/inverse_second);
-    if ((moves_queued > 1) && (moves_queued < (BLOCK_BUFFER_SIZE * 0.5)))
+#ifdef SLOWDOWN
+    // Slow down only moves that are not retracting/returning and not moving Z
+    if( prev_moves_queued > moves_queued &&
+        block->steps_e >= dropsegments && block->steps_z <= dropsegments && 
+        (block->steps_x > dropsegments || block->steps_y > dropsegments) )
     {
+      //  segment time im micro seconds
+      unsigned long segment_time = lround(1000000.0/inverse_second);
       if (segment_time < minsegmenttime)
       { // buffer is draining, add extra time.  The amount of time added increases if the buffer is still emptied more.
         inverse_second=1000000.0/(segment_time+lround(2*(minsegmenttime-segment_time)/moves_queued));
-        #ifdef XY_FREQUENCY_LIMIT
-           segment_time = lround(1000000.0/inverse_second);
-        #endif
       }
     }
+#endif // SLOWDOWN
+#ifdef ULTIPANEL
+    if(moves_queued < (BLOCK_BUFFER_SIZE >> 2)) {
+      LCD_MESSAGEPGM(MSG_PRINTING MSG_BUF_LOW);
+      lcd_status_update_on_idle = true;
+    }
+#endif // ULTIPANEL
   }
+#ifdef SLOWDOWN
+  prev_moves_queued = moves_queued;
 #endif // SLOWDOWN
 
   block->nominal_speed = block->millimeters * inverse_second; // (mm/sec) Always > 0
@@ -880,11 +889,10 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   
   // Max segement time in us.
 #ifdef XY_FREQUENCY_LIMIT
-#define MAX_FREQ_TIME (1000000.0/XY_FREQUENCY_LIMIT)
   // Check and limit the xy direction change frequency
   unsigned char direction_change = block->direction_bits ^ old_direction_bits;
   old_direction_bits = block->direction_bits;
-  segment_time = lround((float)segment_time / speed_factor);
+  unsigned long segment_time = lround(1000000.0/(inverse_second*speed_factor));
   
   if((direction_change & (1<<X_AXIS)) == 0)
   {

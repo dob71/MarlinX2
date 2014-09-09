@@ -196,7 +196,7 @@
 #define DEFAULT_MINSEGMENTTIME        20000
 
 // If defined the movements slow down when the look ahead buffer is only half full
-#define SLOWDOWN
+//#define SLOWDOWN
 
 // Frequency limit
 // See nophead's blog for more info
@@ -304,7 +304,6 @@ const unsigned int dropsegments = 5;
 #else
   #define BLOCK_BUFFER_SIZE 16 // maximize block buffer
 #endif
-
 
 // The ASCII buffer for receiving from the serial:
 #define MAX_CMD_SIZE 96
@@ -436,5 +435,9 @@ const unsigned int dropsegments = 5;
   #endif
   #define FAN_PIN (fan_pin[ACTIVE_EXTRUDER])
 #endif // PER_EXTRUDER_FANS
+
+#if (((((BLOCK_BUFFER_SIZE) - 1) | (BLOCK_BUFFER_SIZE)) >> 1) != ((BLOCK_BUFFER_SIZE) - 1))
+#  error "BLOCK_BUFFER_SIZE has to be a a power of 2!"
+#endif
 
 #endif //__CONFIGURATION_ADV_H

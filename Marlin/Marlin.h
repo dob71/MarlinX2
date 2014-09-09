@@ -205,6 +205,9 @@ void enquecommand(const char *cmd); //put an ascii command at the end of the cur
 void enquecommand_P(const char *cmd); //put an ascii command at the end of the current buffer, read from flash
 void prepare_arc_move(char isclockwise);
 void clamp_to_software_endstops(float target[3]);
+#ifdef C_COMPENSATION
+void precalc_comp_values(unsigned char extruder);
+#endif // C_COMPENSATION
 
 #ifdef FAST_PWM_FAN
    void setPwmFrequency(uint8_t pin, int val);

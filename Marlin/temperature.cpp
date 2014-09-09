@@ -272,16 +272,16 @@ void PID_autotune(float temp, int extruder, int ncycles)
     if(millis() - temp_millis > 2000) {
 			int p;
 			if (extruder<0){
-	      p=soft_pwm_bed;       
+	      p=soft_pwm_bed;
 	      SERIAL_PROTOCOLPGM("ok B:");
 			}else{
-	      p=soft_pwm[extruder];       
+	      p=soft_pwm[extruder];
 	      SERIAL_PROTOCOLPGM("ok T:");
 			}
 			
-      SERIAL_PROTOCOL(input);   
+      SERIAL_PROTOCOL(input);
       SERIAL_PROTOCOLPGM(" @:");
-      SERIAL_PROTOCOLLN(p);       
+      SERIAL_PROTOCOLLN(p);
 
       temp_millis = millis();
     }
