@@ -101,6 +101,9 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 void plan_set_position(const float &x, const float &y, const float &z, const float &e);
 void plan_set_e_position(const float &e);
 
+// Handle machine inactivity for planner
+void planner_manage_inactivity(void);
+
 #ifdef ENABLE_DEBUG
 void planner_print_plan();
 #endif
@@ -119,6 +122,7 @@ extern float max_e_jerk[EXTRUDERS]; // mm/s - initial speed for extruder retract
 extern float max_xy_jerk; //speed than can be stopped at once, if i understand correctly.
 extern float max_z_jerk;
 extern float mintravelfeedrate;
+extern unsigned long planner_q_empty_time; // timestamp when planner queue became empty
 
 #ifdef AUTOTEMP
     extern bool autotemp_enabled;

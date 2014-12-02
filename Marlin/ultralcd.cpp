@@ -654,6 +654,13 @@ static void lcd_control_motion_menu()
     MENU_ITEM_EDIT(float52, MSG_XSTEPS, &axis_steps_per_unit[X_AXIS], 5, 9999);
     MENU_ITEM_EDIT(float52, MSG_YSTEPS, &axis_steps_per_unit[Y_AXIS], 5, 9999);
     MENU_ITEM_EDIT(float51, MSG_ZSTEPS, &axis_steps_per_unit[Z_AXIS], 5, 9999);
+    MENU_ITEM_EDIT(float3, MSG_VMIN, &minimumfeedrate, 0, 999);
+    MENU_ITEM_EDIT(float3, MSG_VTRAV_MIN, &mintravelfeedrate, 0, 999);
+#ifdef AUTO_SLOWDOWN
+    MENU_ITEM_EDIT(byte3, MSG_SLD_VAL,  &slowdown_val, 0, 20);
+    MENU_ITEM_EDIT(byte3, MSG_SLD_MIN,  &slowdown_min_feedmult, 1, 255);
+    MENU_ITEM_EDIT(long5, MSG_SLD_TOUT, &slowdown_backoff, 1, 99999);
+#endif // AUTO_SLOWDOWN
 #if EXTRUDERS > 1
     MENU_ITEM_EDIT(float3, MSG_VE_JERK " 1", &(max_e_jerk[0]), 1, 990);
     MENU_ITEM_EDIT(float3, MSG_VMAX MSG_E "1", &max_feedrate[E_AXIS], 1, 999);
@@ -679,8 +686,6 @@ static void lcd_control_motion_menu()
     MENU_ITEM_EDIT(float5, MSG_A_RETRACT " 3", &retract_acceleration[2], 100, 99000);
     MENU_ITEM_EDIT(float51, MSG_ESTEPS " 3", &axis_steps_per_unit[E_AXIS + 2], 5, 9999);    
 #endif
-    MENU_ITEM_EDIT(float3, MSG_VMIN, &minimumfeedrate, 0, 999);
-    MENU_ITEM_EDIT(float3, MSG_VTRAV_MIN, &mintravelfeedrate, 0, 999);
 #ifdef ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED
     MENU_ITEM_EDIT(bool, "Endstop abort", &abort_on_endstop_hit);
 #endif
@@ -900,11 +905,15 @@ void lcd_init()
     encoderDiff = 0;
 }
 
+void lcd_force_update()
+{
+    lcd_next_update_millis = millis() - 1;
+    lcd_update();
+}
+
 void lcd_update()
 {
     static unsigned long timeoutToStatus = 0;
-    
-    lcd_buttons_update();
     
     #if (SDCARDDETECT > -1)
     if((IS_SD_INSERTED != lcd_oldcardstatus))
@@ -967,7 +976,7 @@ void lcd_update()
             lcd_implementation_clear();
         if (lcdDrawUpdate)
             lcdDrawUpdate--;
-        lcd_next_update_millis = millis() + 100;
+        lcd_next_update_millis = millis() + 200;
     }
 }
 
@@ -984,6 +993,10 @@ void lcd_setstatuspgm(const char* message)
         return;
     strncpy_P(lcd_status_message, message, LCD_WIDTH);
     lcdDrawUpdate = 2;
+}
+void lcd_status_reset(void)
+{
+    lcd_setstatuspgm(PSTR(WELCOME_MSG));
 }
 void lcd_setalertstatuspgm(const char* message)
 {

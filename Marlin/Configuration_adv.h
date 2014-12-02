@@ -195,8 +195,10 @@
 // Minimum time in microseconds that a movement needs to take if the buffer is emptied.
 #define DEFAULT_MINSEGMENTTIME        20000
 
-// If defined the movements slow down when the look ahead buffer is only half full
-//#define SLOWDOWN
+// sets the max time (in milliseconds) between moves
+// that belong to the same printing sequence. Moves arriving with interval 
+// longer than that are not triggering slowdown.
+#define PRINTING_STOPPED_TIMEOUT 500
 
 // Frequency limit
 // See nophead's blog for more info
@@ -300,9 +302,9 @@ const unsigned int dropsegments = 5;
 // THE BLOCK_BUFFER_SIZE NEEDS TO BE A POWER OF 2, i.g. 8,16,32 because shifts 
 // and ors are used to do the ringbuffering.
 #if defined SDSUPPORT
-  #define BLOCK_BUFFER_SIZE 16   // SD,LCD,Buttons take more memory, block buffer needs to be smaller
+  #define BLOCK_BUFFER_SIZE 32   // SD,LCD,Buttons take more memory, block buffer needs to be smaller
 #else
-  #define BLOCK_BUFFER_SIZE 16 // maximize block buffer
+  #define BLOCK_BUFFER_SIZE 32 // maximize block buffer
 #endif
 
 // The ASCII buffer for receiving from the serial:

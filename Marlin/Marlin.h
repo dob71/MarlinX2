@@ -263,6 +263,12 @@ extern unsigned char fanSpeed[EXTRUDERS];
   extern int fan_pin[EXTRUDERS];
 #endif
 
+#ifdef AUTO_SLOWDOWN
+  extern unsigned char slowdown_val;
+  extern unsigned char slowdown_min_feedmult;
+  extern unsigned long slowdown_backoff;
+#endif // AUTO_SLOWDOWN
+
 #if EXTRUDERS > 1
   extern uint8_t follow_me; // Bitmask of the follow me mode state
   extern bool follow_me_heater; // Follw the hotend temperature changes

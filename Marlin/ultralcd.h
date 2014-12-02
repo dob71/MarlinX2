@@ -6,9 +6,11 @@
 #ifdef ULTRA_LCD
 
   void lcd_update();
+  void lcd_force_update();
   void lcd_init();
   void lcd_setstatus(const char* message);
   void lcd_setstatuspgm(const char* message);
+  void lcd_status_reset();
   void lcd_setalertstatuspgm(const char* message);
   void lcd_reset_alert_level();
   
@@ -19,6 +21,9 @@
 
   #define LCD_UPDATE_INTERVAL 100
   #define LCD_TIMEOUT_TO_STATUS 15000
+
+  #define LCD_STATUS_RESET() lcd_status_reset()
+  #define LCD_FORCE_UPDATE() lcd_force_update()
 
   #ifdef ULTIPANEL
   void lcd_buttons_update();
@@ -64,6 +69,8 @@
 
   #define LCD_MESSAGEPGM(x) 
   #define LCD_ALERTMESSAGEPGM(x) 
+  #define LCD_STATUS_RESET()
+  #define LCD_FORCE_UPDATE()
 #endif 
 
 char *itostr2(const uint8_t &x);

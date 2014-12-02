@@ -131,6 +131,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
    
 // Serial Console Messages
 
@@ -307,6 +310,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
 
 // Serial Console Messages
 
@@ -487,6 +493,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
 
 // Serial Console Messages
 
@@ -665,6 +674,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
 	
 // Serial Console Messages
 
@@ -845,6 +857,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
 
 // Serial Console Messages
 
@@ -1018,6 +1033,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
 
 // Serial Console Messages
 
@@ -1190,6 +1208,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
 
 // Serial Console Messages
 
@@ -1373,6 +1394,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
 
 // Serial Console Messages
 
@@ -1548,6 +1572,9 @@
 	#define MSG_PRINTING "Printing... " 
 	#define MSG_BUF_FULL "Buf:100%"
 	#define MSG_BUF_LOW "Buf:<25%"
+	#define MSG_SLD_VAL "S-down Dec"
+	#define MSG_SLD_MIN "S-down Min"
+	#define MSG_SLD_TOUT "S-down B-off"
 
 // Serial Console Messages
 

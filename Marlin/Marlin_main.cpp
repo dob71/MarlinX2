@@ -118,7 +118,6 @@
 // M209 - S<1=true/0=false> enable automatic retract detect if the slicer did not support G10/11: every normal extrude-only move will be classified as retract depending on the direction.
 // M218 - Set hotend offset (in mm): T<extruder_number> X<offset_on_X> Y<offset_on_Y>
 // M220 - S<factor in percent>- set speed factor override percentage
-// M221 - S<factor in percent>- set extrude factor override percentage
 // M240 - Trigger a camera to take a photograph
 // M301 - Set PID parameters P I D and R (PID active range)
 // M300 - Play beepsound S<frequency Hz> P<duration ms>
@@ -232,6 +231,12 @@ float extruder_offset[2][EXTRUDERS] = {
   float retract_recover_length=0, retract_recover_feedrate=8*60;
 #endif
 
+#ifdef AUTO_SLOWDOWN
+  unsigned char slowdown_val = AUTO_SLOWDOWN;
+  unsigned char slowdown_min_feedmult = AUTO_SLOWDOWN_MIN;
+  unsigned long slowdown_backoff = AUTO_SLOWDOWN_BACKOFF;
+#endif // AUTO_SLOWDOWN
+
 #if EXTRUDERS > 1
   uint8_t follow_me = 0; // Bitmask of the follow me mode state
   bool follow_me_heater; // Follow the hotend temperature changes
@@ -289,6 +294,8 @@ unsigned long starttime=0;
 unsigned long stoptime=0;
 
 static uint8_t tmp_extruder;
+
+static unsigned char step;
 
 bool Stopped=false;
 
@@ -488,7 +495,7 @@ void setup()
        manage_heater();
        lcd_update();
      }
-  }  
+  }
 }
 
 /* Prints the temperatures state string, the new mode output includes 
@@ -555,6 +562,7 @@ void loop()
       {
         card.closefile();
         SERIAL_PROTOCOLLNPGM(MSG_FILE_SAVED);
+        LCD_STATUS_RESET();
       }
     }
     else
@@ -567,11 +575,23 @@ void loop()
     buflen = (buflen-1);
     bufindr = (bufindr + 1)%BUFSIZE;
   }
+  
   //check heater every n milliseconds
   manage_heater();
-  manage_inactivity();
-  checkHitEndstops();
-  lcd_update();
+
+  // The remaining calls do at separate passes to avoid long delays
+  if((step & 1) == 0) // Every even step
+  {
+    manage_inactivity();
+    checkHitEndstops();
+    planner_manage_inactivity();
+  }
+  else // Every odd step
+  {
+    lcd_update();
+  }
+  
+  step++;
 }
 
 void get_command() 
@@ -627,6 +647,7 @@ void get_command()
           SERIAL_ERRORLN(gcode_LastN);
           FlushSerialRequestResend();
           serial_count = 0;
+          kill();
           return;
         }
         gcode_LastN = gcode_N;
@@ -919,6 +940,7 @@ void process_commands()
         manage_inactivity();
         lcd_update();
       }
+      LCD_STATUS_RESET();
       break;
       #ifdef FWRETRACT  
       case 10: // G10 retract
@@ -1101,18 +1123,18 @@ void process_commands()
           lcd_update();
         }
       }
-      LCD_MESSAGEPGM(MSG_RESUMING);
+      LCD_STATUS_RESET();
     }
     break;
 #endif
     case 17:
-        LCD_MESSAGEPGM(MSG_NO_MOVE);
         enable_x(); 
         enable_y(); 
         enable_z(); 
         enable_e0(); 
         enable_e1(); 
         enable_e2(); 
+        LCD_STATUS_RESET();
       break;
 
 #ifdef SDSUPPORT
@@ -1320,7 +1342,6 @@ void process_commands()
         start_e = tmp_extruder; 
         end_e = tmp_extruder + 1;
       }
-      LCD_MESSAGEPGM(MSG_HEATING);   
     #ifdef AUTOTEMP
       autotemp_enabled = false;
     #endif
@@ -1366,6 +1387,8 @@ void process_commands()
         autotemp_enabled=true;
       }
     #endif
+
+      LCD_MESSAGEPGM(MSG_HEATING);   
 
       SERIAL_ECHO_START;
       SERIAL_ECHOPGM(MSG_TEMPERATURE_TGT);
@@ -1443,7 +1466,7 @@ void process_commands()
         manage_inactivity();
         lcd_update();
       }
-      LCD_MESSAGEPGM(MSG_HEATING_COMPLETE);
+      LCD_STATUS_RESET();
       starttime=millis();
     }
     break;
@@ -1466,7 +1489,7 @@ void process_commands()
         manage_inactivity();
         lcd_update();
       }
-      LCD_MESSAGEPGM(MSG_BED_DONE);
+      LCD_STATUS_RESET();
     #endif
     }
     break;
@@ -1788,7 +1811,32 @@ void process_commands()
     {
       if(code_seen('S')) 
       {
-        feedmultiply = code_value() ;
+        feedmultiply = code_value();
+      }
+      #ifdef AUTO_SLOWDOWN
+      else if(code_seen('A')) 
+      {
+        slowdown_val = code_value();
+      }
+      else if(code_seen('L')) 
+      {
+        slowdown_min_feedmult = code_value();
+      }
+      else if(code_seen('B')) 
+      {
+        slowdown_backoff = code_value();
+      }
+      #endif // AUTO_SLOWDOWN
+      else 
+      {
+        SERIAL_ECHO_START;
+        SERIAL_ECHOPAIR("M220 S", feedmultiply);
+        #ifdef AUTO_SLOWDOWN
+        SERIAL_ECHOPAIR(" A", (int)slowdown_val);
+        SERIAL_ECHOPAIR(" L", (int)slowdown_min_feedmult);
+        SERIAL_ECHOPAIR(" B", slowdown_backoff);
+        #endif // AUTO_SLOWDOWN
+        SERIAL_ECHOLN("");
       }
     }
     break;
@@ -2625,9 +2673,27 @@ void kill()
   disable_e2();
   
   if(PS_ON_PIN > -1) pinMode(PS_ON_PIN,INPUT);
+#if 0 // This is for serial drops debugging
+  serial_echopair_P(PSTR("echo: gcode_N:"),gcode_N);
+  serial_echopair_P(PSTR(" gcode_LastN:"),gcode_LastN);
+  serial_echopair_P(PSTR(" bufindw:"),bufindw);
+  serial_echopair_P(PSTR(" bufindr:"),bufindr);
+  SERIAL_ECHOLN("");
+  serial_echopair_P(PSTR("echo: cmd0:"),cmdbuffer[0]);
+  SERIAL_ECHOLN("");
+  serial_echopair_P(PSTR("echo: cmd1:"),cmdbuffer[1]);
+  SERIAL_ECHOLN("");
+  serial_echopair_P(PSTR("echo: cmd2:"),cmdbuffer[2]);
+  SERIAL_ECHOLN("");
+  serial_echopair_P(PSTR("echo: cmd3:"),cmdbuffer[3]);
+  SERIAL_ECHOLN("");
+  SERIAL_ECHOLN("echo: planner buffer:");
+  planner_print_plan();
+#endif
   SERIAL_ERROR_START;
   SERIAL_ERRORLNPGM(MSG_ERR_KILLED);
   LCD_ALERTMESSAGEPGM(MSG_KILLED);
+  LCD_FORCE_UPDATE();
   suicide();
   while(1) { /* Intentionally left empty */ } // Wait for reset
 }
@@ -2641,6 +2707,8 @@ void Stop()
     SERIAL_ERROR_START;
     SERIAL_ERRORLNPGM(MSG_ERR_STOPPED);
     LCD_MESSAGEPGM(MSG_STOPPED);
+    LCD_FORCE_UPDATE();
+    LCD_FORCE_UPDATE();
   }
 }
 

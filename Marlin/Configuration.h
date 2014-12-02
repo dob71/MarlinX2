@@ -466,11 +466,11 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // The compensation for speed 0mm/s is always 0mm and should not be listed.
 // For speeds higher than listed in the table firmware uses the last row value.
 // Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
-#define C_COMPENSATION  {{0.0, 0.0}, {0.0, 0.0}}, \
-                        {{0.0, 0.0}, {0.0, 0.0}}, \
-                        {{0.0, 0.0}, {0.0, 0.0}}, \
-                        {{0.0, 0.0}, {0.0, 0.0}}, \
-                        {{0.0, 0.0}, {0.0, 0.0}}
+//#define C_COMPENSATION  {{0.0, 0.0}, {0.0, 0.0}}, \
+//                        {{0.0, 0.0}, {0.0, 0.0}}, \
+//                        {{0.0, 0.0}, {0.0, 0.0}}, \
+//                        {{0.0, 0.0}, {0.0, 0.0}}, \
+//                        {{0.0, 0.0}, {0.0, 0.0}}
 
 // Minimum speed at which to add/remove compensation filament. For each move the 
 // firmware tries to compensate filament at the speed that assures that the 
@@ -503,6 +503,31 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // and do it only after retract, return or travel moves.
 // M340 'W' can be used to adjust the value on the fly.
 #define C_COMPENSATION_WINDOW { 100, 100 }
+
+// The auto-slowdown lowers the feedrate multiplier in case the printing 
+// buffer is emptied faster than the moves are added. If it is enabled the feed 
+// rate multiplier (manipulated through M220 command or LCD controller) is 
+// decreased (to the specified by the define percentage anmount) as new moves 
+// arrive. The slowdown activated only if the printing buffer has ever reached 
+// 75% during the print. It slowes the printing down if buffer goes under 25%.
+// When it is activated the current feedrate multiplier is saved. It is restored 
+// the printing session ends (see PRINTING_SESSION_TIMEOUT). 
+//#define AUTO_SLOWDOWN 1
+// AUTO_SLOWDOWN_MIN sets the minimum feed rate multiplier (in %) that 
+// auto slowdown is allowd to get down to.
+#define AUTO_SLOWDOWN_MIN 25
+// AUTO_SLOWDOWN_BACKOFF sets the time (in milliseconds) for how long it has
+// to wait after changing the multiplier before it can do it again.
+#define AUTO_SLOWDOWN_BACKOFF 1000
+
+// PRINTING_SESSION_TIMEOUT sets printing session timeout (in milliseconds). 
+// If queue was drained empty and no new moves received during the timeout the 
+// ongoing printing job is considered to be done. 
+// The state of the printing job is used by AUTO_SLOWDOWN feature to determine 
+// when to restore original feedrate multiplier (saved when the session starts).
+// It is also used by LCD code to switch back from "printing" to "welocme" 
+// status message.
+#define PRINTING_SESSION_TIMEOUT 3000
 
 // Uncomment the below define if the machine has individually controlled 
 // hotend fans. The pins for those fans have to be defined by 

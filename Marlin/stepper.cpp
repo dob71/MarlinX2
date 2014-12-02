@@ -937,13 +937,10 @@ ISR(TIMER1_COMPA_vect)
       wait_for_comp = false;
       #endif // C_COMPENSATION
       OCR1A = 2000; // 1kHz.
-      #ifdef ULTIPANEL
-      // If nothing else and needed LCD update, do it now
-      if(lcd_status_update_on_idle) {
-        lcd_status_update_on_idle = false;
-        LCD_MESSAGEPGM(WELCOME_MSG);
-      }
-      #endif // ULTIPANEL
+      // Capture time when the queue has been depleted (make sure value is !0)
+      planner_q_empty_time = millis();
+      if(planner_q_empty_time == 0)
+        planner_q_empty_time++;
       return;
     }
   }

@@ -114,11 +114,16 @@ static float window_acc_dst;
 static unsigned char window_count;
 #endif // C_COMPENSATION_WINDOW
 #endif // C_COMPENSATION
-#ifdef SLOWDOWN
-static unsigned char prev_moves_queued = 0;
-#endif // SLOWDOWN
+#ifdef AUTO_SLOWDOWN
+static unsigned long prev_slowdown_time; // When last slowdown happened
+static bool queue_was_full; // queue over 75% was detected
+static int saved_feedmultiply; // var for saving feedmultiply
+#endif // AUTO_SLOWDOWN
+unsigned long planner_q_empty_time; // timestamp when planner queue became empty
+
 #ifdef ULTIPANEL
 bool lcd_status_update_on_idle = false;
+bool lcd_status_buffer_full = false;
 #endif // ULTIPANEL
 
 //===========================================================================
@@ -659,6 +664,37 @@ void check_axes_activity()
 #endif
 }
 
+// Handle machine inactivity for planner
+void planner_manage_inactivity(void)
+{
+  // See if we've just had the queue emptied and staying empty for the 
+  // PRINTING_SESSION_TIMEOUT
+  if(num_blocks_queued() == 0 && planner_q_empty_time && 
+     ((millis() - planner_q_empty_time) >= PRINTING_SESSION_TIMEOUT)) {
+#ifdef AUTO_SLOWDOWN
+    // Check the flag indicating we've seen queue full, it means we've
+    // saved the feedrate multipliet when that happened, so now we we 
+    // should restore it and clear the flag.
+    if(queue_was_full) {
+      queue_was_full = false;
+      feedmultiply = saved_feedmultiply;
+    }
+#endif // AUTO_SLOWDOWN
+
+#ifdef ULTIPANEL
+    // If need LCD update to clear "printing" status messages, do it now 
+    // (after PRINTING_SESSION_TIMEOUT delay)
+    if(lcd_status_update_on_idle) {
+      lcd_status_update_on_idle = false;
+      LCD_STATUS_RESET();
+    }
+#endif // ULTIPANEL
+
+    planner_q_empty_time = 0;
+  }
+
+  return;
+}
 
 float junction_deviation = 0.1;
 // Add a new linear movement to the buffer. steps_x, _y and _z is the absolute position in 
@@ -671,15 +707,17 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   // If the buffer is full: good! That means we are well ahead of the robot. 
   // Rest here until there is room in the buffer.
+  #ifdef ULTIPANEL
+  if(block_buffer_tail == next_buffer_head) {
+    LCD_MESSAGEPGM(MSG_PRINTING MSG_BUF_FULL);
+    lcd_status_update_on_idle = true;
+    lcd_status_buffer_full = true;
+  }
+  #endif // ULTIPANEL
   while(block_buffer_tail == next_buffer_head)
   {
     manage_heater(); 
     manage_inactivity(); 
-    #ifdef ULTIPANEL
-    LCD_MESSAGEPGM(MSG_PRINTING MSG_BUF_FULL);
-    lcd_status_update_on_idle = true;
-    lcd_update();
-    #endif // ULTIPANEL
   }
   
   // The target position of the tool in absolute steps
@@ -828,34 +866,42 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   // Calculate speed in mm/second for each axis. No divide by zero due to previous checks.
   float inverse_second = feed_rate * inverse_millimeters;
   int moves_queued = num_blocks_queued();
+#ifdef AUTO_SLOWDOWN
+  unsigned long move_time = millis();
+#endif // AUTO_SLOWDOWN
 
-  // If buffer is still filled in, but getting lower than 50%
-  if ((moves_queued > 1) && (moves_queued < (BLOCK_BUFFER_SIZE >> 1)))
+  // If buffer is still filled in, but getting lower than 25%
+  if(moves_queued < (BLOCK_BUFFER_SIZE >> 2))
   {
-#ifdef SLOWDOWN
-    // Slow down only moves that are not retracting/returning and not moving Z
-    if( prev_moves_queued > moves_queued &&
-        block->steps_e >= dropsegments && block->steps_z <= dropsegments && 
-        (block->steps_x > dropsegments || block->steps_y > dropsegments) )
+#ifdef AUTO_SLOWDOWN
+    // Lower feed multiplier only when new moves are received and the 
+    // backoff interval since the last change has passed.  
+    // Also check that we are above the minimum and saw queue full.
+    if(((move_time - prev_slowdown_time) >= slowdown_backoff) && 
+       (feedmultiply > slowdown_min_feedmult) && slowdown_val && queue_was_full)
     {
-      //  segment time im micro seconds
-      unsigned long segment_time = lround(1000000.0/inverse_second);
-      if (segment_time < minsegmenttime)
-      { // buffer is draining, add extra time.  The amount of time added increases if the buffer is still emptied more.
-        inverse_second=1000000.0/(segment_time+lround(2*(minsegmenttime-segment_time)/moves_queued));
-      }
+      feedmultiply -= slowdown_val; 
+      if(feedmultiply < slowdown_min_feedmult) 
+        feedmultiply = slowdown_min_feedmult;
+      prev_slowdown_time = move_time;
     }
-#endif // SLOWDOWN
+#endif // AUTO_SLOWDOWN
 #ifdef ULTIPANEL
-    if(moves_queued < (BLOCK_BUFFER_SIZE >> 2)) {
+    if(lcd_status_buffer_full || !lcd_status_update_on_idle) {
       LCD_MESSAGEPGM(MSG_PRINTING MSG_BUF_LOW);
       lcd_status_update_on_idle = true;
+      lcd_status_buffer_full = false;
     }
 #endif // ULTIPANEL
   }
-#ifdef SLOWDOWN
-  prev_moves_queued = moves_queued;
-#endif // SLOWDOWN
+#ifdef AUTO_SLOWDOWN
+  else if(!queue_was_full && 
+          moves_queued >= ((BLOCK_BUFFER_SIZE >> 1) + (BLOCK_BUFFER_SIZE >> 2)))
+  {
+    saved_feedmultiply = feedmultiply;
+    queue_was_full = true;
+  }
+#endif // AUTO_SLOWDOWN
 
   block->nominal_speed = block->millimeters * inverse_second; // (mm/sec) Always > 0
   block->nominal_rate = ceil(block->step_event_count * inverse_second); // (step/sec) Always > 0
@@ -1066,6 +1112,9 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   // Move buffer head
   block_buffer_head = next_buffer_head;
+
+  // Clear queue empty time since we've added a new move
+  planner_q_empty_time = 0;
 
   // Update position
   memcpy(position, target, sizeof(target)); // position[] = target[]
