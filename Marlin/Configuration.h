@@ -26,17 +26,19 @@
 // 12 = Gen7 v1.3
 // 13 = Gen7 v1.4
 // 3  = MEGA/RAMPS up to 1.2 = 3
-// 33 = RAMPS 1.3 (Power outputs: Extruder, Bed, Fan)
-// 34 = RAMPS 1.4 (Power outputs: Extruder0, Extruder1, Bed)
+// 33 = RAMPS 1.3 / 1.4 (Power outputs: Extruder, Bed, Fan)
+// 34 = RAMPS 1.3 / 1.4 (Power outputs: Extruder0, Extruder1, Bed)
 // 4  = Duemilanove w/ ATMega328P pin assignment
 // 5  = Gen6
 // 51 = Gen6 deluxe
 // 6  = Sanguinololu < 1.2
 // 62 = Sanguinololu 1.2 and above
 // 63 = Melzi
+// 64 = STB V1.1
 // 7  = Ultimaker
 // 71 = Ultimaker (Older electronics. Pre 1.5.4. This is rare)
 // 8  = Teensylu
+// 80 = Rumba
 // 81 = Printrboard (AT90USB1286)
 // 82 = Brainwave (AT90USB646)
 // 9  = Gen3+
@@ -93,7 +95,7 @@
 
 // Actual temperature must be close to target for this long before M109 returns success
 #define TEMP_RESIDENCY_TIME 30  // (seconds)
-#define TEMP_WINDOW 3           // (C) range of +/- temperatures considered "close" enough to the target one 
+#define TEMP_WINDOW 2           // (C) range of +/- temperatures considered "close" enough to the target one 
                                 // (i.e. M109 will consider the temp reached if withing that range)
 #define TEMP_WINDOW_BED 2       // (C) range of +/- temperatures considered "close" enough for bed
 
@@ -116,7 +118,7 @@
 // PID settings:
 // Comment the following line to disable PID and enable bang-bang.
 #define PIDTEMP
-#define PID_MAX 256 // limits current to nozzle; 256=full current
+#define PID_MAX 256 // limits current to nozzle while PID is active (see PID_FUNCTIONAL_RANGE below); 256=full current
 #ifdef PIDTEMP
   //#define PID_OPENLOOP 1 // Puts PID in open loop. M104/M140 sets the output power from 0 to PID_MAX
   #define PID_INTEGRAL_DRIVE_MAX 255  //limit for the integral term
@@ -359,9 +361,9 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // default settings 
 #define DEFAULT_AXIS_STEPS_PER_UNIT   {80.0000, 80.0000, 2284.7651, 757.2218, 757.2218} // X,Y,Z,E0... SAE Prusa w/ Wade extruder
 #define DEFAULT_MAX_FEEDRATE          {230, 230, 7, 23, 23} // X,Y,Z,E0...(mm/sec)    
-#define DEFAULT_MAX_ACCELERATION      {5000, 5000, 100, 5000, 5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
+#define DEFAULT_MAX_ACCELERATION      {2000, 1500, 100, 5000, 5000} // X,Y,Z,E0... maximum acceleration (mm/s^2). E default values are good for skeinforge 40+, for older versions raise them a lot.
 #define DEFAULT_RETRACT_ACCELERATION  {60000, 60000} // E0... (per extruder) acceleration in mm/s^2 for retracts 
-#define DEFAULT_ACCELERATION          3000    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
+#define DEFAULT_ACCELERATION          2500    // X,Y,Z and E* acceleration (one for all) in mm/s^2 for printing moves 
 
 #define DEFAULT_XYJERK                2.0     // (mm/sec)
 #define DEFAULT_ZJERK                 0.4     // (mm/sec)
@@ -385,7 +387,8 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 
 //LCD and SD support
 //#define ULTRA_LCD  //general lcd support, also 16x2
-#define SDSUPPORT // Enable SD Card Support in Hardware Console
+//#define DOGLCD	   // Support for SPI LCD 128x64 (Controller ST7565R graphic Display Family)
+//#define SDSUPPORT  // Enable SD Card Support in Hardware Console
 
 //#define ULTIMAKERCONTROLLER //as available from the ultimaker online store.
 //#define ULTIPANEL  //the ultipanel as on thingiverse
@@ -398,7 +401,19 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 // http://reprap.org/wiki/RAMPS_1.3/1.4_GADGETS3D_Shield_with_Panel
 //#define G3D_PANEL
 
+// The RepRapDiscount FULL GRAPHIC Smart Controller (quadratic white PCB)
+// http://reprap.org/wiki/RepRapDiscount_Full_Graphic_Smart_Controller
+//
+// ==> REMEMBER TO INSTALL U8glib to your ARDUINO library folder: http://code.google.com/p/u8glib/wiki/u8glib
+//#define REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER
+
 //automatic expansion
+#if defined (REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER)
+ #define DOGLCD
+ #define U8GLIB_ST7920
+ #define REPRAP_DISCOUNT_SMART_CONTROLLER
+#endif
+
 #if defined(ULTIMAKERCONTROLLER) || defined(REPRAP_DISCOUNT_SMART_CONTROLLER) || defined(G3D_PANEL)
  #define ULTIPANEL
  #define NEWPANEL
@@ -411,57 +426,108 @@ const bool Z_ENDSTOPS_INVERTING = false; // set to true to invert the logic of t
 
 #define ABS_PREHEAT_HOTEND_TEMP 220
 #define ABS_PREHEAT_HPB_TEMP 110
-#define ABS_PREHEAT_FAN_SPEED 100		// Insert Value between 0 and 255
+#define ABS_PREHEAT_FAN_SPEED 70		   // Insert Value between 0 and 255
 
 #ifdef ULTIPANEL
 //  #define NEWPANEL  //enable this if you have a click-encoder panel
   #define SDSUPPORT
   #define ULTRA_LCD
-  #define LCD_WIDTH 20
-  #define LCD_HEIGHT 4
-  
+	#ifdef DOGLCD	// Change number of lines to match the DOG graphic display
+		#define LCD_WIDTH 20
+		#define LCD_HEIGHT 5
+	#else
+		#define LCD_WIDTH 20
+		#define LCD_HEIGHT 4
+	#endif
 #else //no panel but just lcd 
   #ifdef ULTRA_LCD
-    #define LCD_WIDTH 16
-    #define LCD_HEIGHT 2    
+	#ifdef DOGLCD	// Change number of lines to match the 128x64 graphics display
+		#define LCD_WIDTH 20
+		#define LCD_HEIGHT 5
+	#else
+		#define LCD_WIDTH 16
+		#define LCD_HEIGHT 2
+	#endif    
   #endif
 #endif
 
-// Enable filament compression (bowden drive) compensation. If enabled the 
+// Enable filament compression compensation (for bowden drives). If enabled the 
 // firmware compensates for a few more mm of the filament compressed in the 
 // guiding tube when extruding at high speed vs low. The amount of the 
 // compensation is likely to depend on the plastic type and the nozzle 
 // temperature. The M340 command can be used to change the default compensation
 // table in G-code startup script for specific printing profiles.
-// M340 - Set filament compression (bowden drive) compensation table paramters. 
+// M340 - Set filament compression compensation table paramters. 
 //        P<0-N> - table entry position, S<speed> - E speed in mm/sec, 
 //        C<compensation> - length (in mm) of the filament compressed 
 //        in the guiding tube when extruding at the given speed. 
 //        The table entries should be ordered by E speed value. 
 // The number of entries in this define determines the max size of the table.
 // The compensation for speed 0mm/s is always 0mm and should not be listed.
-// For speeds higher than listed the compensation for the last entry is used.
+// For speeds higher than listed in the table firmware uses the last row value.
 // Each row: {{E0_speed, E0_compensation}, {E1_speed, E1_compensation}, ...}
-
-//#define C_COMPENSATION  {{0.1, 0.3}}, \
-//                        {{0.5, 0.9}}, \
-//                        {{1.0, 1.2}}, \
-//                        {{3.0, 2.0}}
+//#define C_COMPENSATION  {{0.0, 0.0}, {0.0, 0.0}}, \
+//                        {{0.0, 0.0}, {0.0, 0.0}}, \
+//                        {{0.0, 0.0}, {0.0, 0.0}}, \
+//                        {{0.0, 0.0}, {0.0, 0.0}}, \
+//                        {{0.0, 0.0}, {0.0, 0.0}}
 
 // Minimum speed at which to add/remove compensation filament. For each move the 
-// firmware tries to compensate filament at the speed that assures that the max-E-jerk
-// or max-E-feedrate limits are not broken. If the move itself is requires E-speed 
-// at the mentioned limits, it will be slowed down to allow room for the minimum
-// compensation speed that is set here (normaly those would be retract/return moves). 
-#define C_COMPENSATION_MIN_SPEED { 3 }
+// firmware tries to compensate filament at the speed that assures that the 
+// max-E-jerk or max-E-feedrate limits are not broken. If the move itself 
+// requires E-speed at the mentioned limits (normally retract/return moves), it 
+// is slowed down to allow room for the minimum compensation speed set here. 
+// M340 'L' can be used to adjust the value on the fly.
+#define C_COMPENSATION_MIN_SPEED { 3, 3 }
 
-// Since each move usually has acceleration, normal travel and then deceleration 
-// compensation has to be adjusted constantly causing a lot of extruder  
-// thrashing. This define tells the firmware to use single compensation value for 
-// entire move duration. Use this define if using acceleration rate too high for 
-// the the machine to adjust the compensation filament length to match its speed
-// (that is normally the case for conventional configurations).
-#define C_COMPENSATION_IGNORE_ACCELERATION
+// The max compensation speed is used to limit the compensation rate for the 
+// cases when firmware is not smart enough to figure the safe limits.
+// M340 'H' can be used to adjust the value on the fly.
+#define C_COMPENSATION_MAX_SPEED { 17, 17 }
+
+// Note: compensation is adjusted using "best effort" strategy, i.e. when 
+//       compensation is calculated for a move the firmware tries to adjust 
+//       it as much as possible while performing that move then moves on 
+//       to the next one and so on.
+
+// The compensation skip window. All the short back-to-back printing moves 
+// that fit into the window will use compensation value of the first move  
+// that was fit into the window. The window is not used untill the planner 
+// buffer is half full. The window is closed by any non-printig move even if 
+// the accumulated moves distance is still shorter than the window size. 
+// The window is also closed if the planner buffer becomes half empty (note: 
+// several commands including extruder change wait for the buffer to be empty). 
+// The window size is configured in mm. The total distance of the printing 
+// moves is used to match against the the window size. The very large window 
+// can be used to eliminate compensation changes between the printing moves 
+// and do it only after retract, return or travel moves.
+// M340 'W' can be used to adjust the value on the fly.
+#define C_COMPENSATION_WINDOW { 100, 100 }
+
+// The auto-slowdown lowers the feedrate multiplier in case the printing 
+// buffer is emptied faster than the moves are added. If it is enabled the feed 
+// rate multiplier (manipulated through M220 command or LCD controller) is 
+// decreased (to the specified by the define percentage anmount) as new moves 
+// arrive. The slowdown activated only if the printing buffer has ever reached 
+// 75% during the print. It slowes the printing down if buffer goes under 25%.
+// When it is activated the current feedrate multiplier is saved. It is restored 
+// the printing session ends (see PRINTING_SESSION_TIMEOUT). 
+//#define AUTO_SLOWDOWN 1
+// AUTO_SLOWDOWN_MIN sets the minimum feed rate multiplier (in %) that 
+// auto slowdown is allowd to get down to.
+#define AUTO_SLOWDOWN_MIN 25
+// AUTO_SLOWDOWN_BACKOFF sets the time (in milliseconds) for how long it has
+// to wait after changing the multiplier before it can do it again.
+#define AUTO_SLOWDOWN_BACKOFF 1000
+
+// PRINTING_SESSION_TIMEOUT sets printing session timeout (in milliseconds). 
+// If queue was drained empty and no new moves received during the timeout the 
+// ongoing printing job is considered to be done. 
+// The state of the printing job is used by AUTO_SLOWDOWN feature to determine 
+// when to restore original feedrate multiplier (saved when the session starts).
+// It is also used by LCD code to switch back from "printing" to "welocme" 
+// status message.
+#define PRINTING_SESSION_TIMEOUT 3000
 
 // Uncomment the below define if the machine has individually controlled 
 // hotend fans. The pins for those fans have to be defined by 

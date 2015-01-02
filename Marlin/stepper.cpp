@@ -53,13 +53,11 @@ volatile static unsigned long step_events_completed; // The number of step event
 #ifdef C_COMPENSATION
 static volatile long old_advance; // number of steps ahead we were when updated the steps scheduled last time
 static volatile long advance; // tracks how many steps ahead we need to be to compensate for compressed filament
-static long initial_advance; // number of steps ahead we need to be when starting the block
 static long target_advance; // number of steps ahead we need to be when done accelerating
 static long final_advance; // number of steps ahead we need to be when done with the block
-static long initial_to_target_advance; // difference from initial to target
-static long target_to_final_advance; // difference from target to final
 static volatile long e_steps[EXTRUDERS]; // steps scheduled to be done by ISR0
 static unsigned short advance_step_rate; // pre-calculated advance step rate for the last block extruder
+static unsigned short max_advance_step_rate; // pre-calculated max advance step rate for the last block extruder
 static long us_per_advance_step; // pre-calculated value for ms/advance_step for the last block extruder
 static bool wait_for_comp; // If true, the compensation has to settle before proceeding to the next block
 static unsigned short total_e_steps_left; // Keeps the counter of e-steps to do (max between all extruders)
@@ -278,7 +276,7 @@ FORCE_INLINE unsigned short calc_timer(unsigned short step_rate) {
   }
   else {
     step_loops = 1;
-  } 
+  }
   
   if(step_rate < (F_CPU/500000)) step_rate = (F_CPU/500000);
   step_rate -= (F_CPU/500000); // Correct for minimal speed
@@ -348,49 +346,39 @@ FORCE_INLINE void set_up_e_steps_for_cycle(uint8_t e, unsigned short t) {
 // Initializes the trapezoid generator from the current block. Called whenever a new 
 // block begins.
 FORCE_INLINE void trapezoid_generator_reset() {
-  #ifdef C_COMPENSATION
+#ifdef C_COMPENSATION
   // By default use compensation step rate calculated for the move by planner
   advance_step_rate = current_block->advance_step_rate;
-  // On restore or travel moves set compensation to the value we will use for the next move.
-  // The planner sets move block compensation to that of the previous move unless it is a 
-  // "normal" printing move. Therefore all the reatract and travel moves followed by "normal"
-  // printing move will adjust the filament compensation for that next move. If followed by 
-  // any non-printing (travel/retract/restore) move then it will keep the compensation the same.
-  // On any other move use what was calculated by the planner.
-  if(current_block->restore || current_block->travel) { 
-    advance = initial_advance = target_advance = final_advance = current_block->next_advance;
-    // See if we can adjust the amount of the filament restored to achieve the desired compensation
-    if(current_block->restore && old_advance > advance) {
-       long d = old_advance - advance;
-       if(current_block->steps_e > d) {
-         current_block->steps_e -= d;
-         old_advance = advance;
-       } else {
-         old_advance -= current_block->steps_e;
-         current_block->steps_e = 0;
-         advance_step_rate += current_block->nominal_rate;
-       }
-    }
-  } else {
-    advance = initial_advance = current_block->initial_advance;
-    target_advance = current_block->target_advance;
-    // Use advance based on the block final speed, only if there are more blocks to 
-    // process, otherwise go down to 0.
+  // Calculate max compensation rate for the current extruder
+  max_advance_step_rate = axis_steps_per_unit[E_AXIS+current_block->active_extruder] * 
+                          gCCom_max_speed[current_block->active_extruder];
+  // Set the default compensation values
+  advance = target_advance = current_block->target_advance;
+  final_advance = current_block->final_advance;
+  if(is_last_block() || final_advance < 0) {
     final_advance = 0;
-    if(!is_last_block()) {
-      final_advance = current_block->final_advance;
+  }
+  // For restore see if we can adjust the amount of the filament restored  
+  // to achieve the desired compensation
+  if(IS_RESTORE(current_block) && old_advance > advance) {
+    long d = old_advance - advance;
+    if(current_block->steps_e > d) {
+      current_block->steps_e -= d;
+      old_advance = advance;
+    } else {
+      old_advance -= current_block->steps_e;
+      current_block->steps_e = 0;
+      advance_step_rate = max_advance_step_rate;
     }
   }
-  initial_to_target_advance = target_advance - initial_advance;
-  target_to_final_advance = final_advance - target_advance;
   // If extruder changes the old_advance is no longer valid and we assume that 
   // there was no compressed filament in the current extruder or it has run out.
   if(current_e != current_block->active_extruder) {
     old_advance = 0;
   }
   us_per_advance_step = 1000000 / advance_step_rate;
-  #endif // C_COMPENSATION
-  #ifdef ENABLE_DEBUG
+#endif // C_COMPENSATION
+#ifdef ENABLE_DEBUG
   if((debug_flags & ACCEL_STEPS_DEBUG) != 0) {
     SERIAL_ECHO_START;
     SERIAL_ECHOPAIR(" SC:", current_block->step_event_count);
@@ -398,18 +386,17 @@ FORCE_INLINE void trapezoid_generator_reset() {
     SERIAL_ECHOPAIR(" DA:", current_block->decelerate_after);
     SERIAL_ECHOLN("");
   }
-  #ifdef C_COMPENSATION
+#ifdef C_COMPENSATION
   if((debug_flags & C_COMPENSATION_DEBUG) != 0) {
     SERIAL_ECHO_START;
     SERIAL_ECHOPAIR(" OA:", old_advance);
-    SERIAL_ECHOPAIR(" IA:", initial_advance);
     SERIAL_ECHOPAIR(" TA:", target_advance);
     SERIAL_ECHOPAIR(" FA:", final_advance);
     SERIAL_ECHOLN("");
   }
   last_print_done = 0;
-  #endif // C_COMPENSATION
-  #endif // ENABLE_DEBUG
+#endif // C_COMPENSATION
+#endif // ENABLE_DEBUG
   current_e = current_block->active_extruder;
   deceleration_time = 0;
   // step_rate to timer interval
@@ -419,7 +406,6 @@ FORCE_INLINE void trapezoid_generator_reset() {
   acc_step_rate = current_block->initial_rate;
   acceleration_time = calc_timer(acc_step_rate);
   OCR1A = acceleration_time;
-  
 }
 
 // Called once at each block init time to set the direction of the move
@@ -935,13 +921,15 @@ ISR(TIMER1_COMPA_vect)
       set_directions();
     } 
     else {
-      #ifdef C_COMPENSATION
       // The queue has emptied or we need to wait till compensation settles. 
+      #ifdef C_COMPENSATION
       // If queue is empty set advance to 0 to clear the compressed filament.
       if(!wait_for_comp) {
         advance = 0;
-        advance_step_rate = axis_steps_per_unit[E_AXIS+current_e] * gCCom_min_speed[current_e];
       }
+      // All we might need to do is deal with compensation, so use max speed
+      advance_step_rate = max_advance_step_rate;
+      us_per_advance_step = 1000000 / advance_step_rate;
       if(advance != old_advance || total_e_steps_left != 0) {
         timer = calc_timer(advance_step_rate);
         goto do_e_steps;
@@ -949,6 +937,10 @@ ISR(TIMER1_COMPA_vect)
       wait_for_comp = false;
       #endif // C_COMPENSATION
       OCR1A = 2000; // 1kHz.
+      // Capture time when the queue has been depleted (make sure value is !0)
+      planner_q_empty_time = millis();
+      if(planner_q_empty_time == 0)
+        planner_q_empty_time++;
       return;
     }
   }
@@ -970,16 +962,12 @@ ISR(TIMER1_COMPA_vect)
     if(acc_step_rate > current_block->nominal_rate)
       acc_step_rate = current_block->nominal_rate;
       
-    #if defined(C_COMPENSATION) && !defined(C_COMPENSATION_IGNORE_ACCELERATION)
-    advance = initial_advance + (step_events_completed*initial_to_target_advance)/current_block->accelerate_until;
-    #endif // C_COMPENSATION && !C_COMPENSATION_IGNORE_ACCELERATION
-
     // step_rate to timer interval
     timer = calc_timer(acc_step_rate);
 
     acceleration_time += timer;
   } 
-  else if (step_events_completed > (unsigned long int)current_block->decelerate_after) {   
+  else if (step_events_completed > (unsigned long int)current_block->decelerate_after) {
     MultiU24X24toH16(step_rate, deceleration_time, current_block->acceleration_rate);
     
     if(step_rate > acc_step_rate) { // Check step_rate stays positive
@@ -994,13 +982,18 @@ ISR(TIMER1_COMPA_vect)
       step_rate = current_block->final_rate;
 
     #ifdef C_COMPENSATION
-    #ifdef C_COMPENSATION_IGNORE_ACCELERATION
     advance = final_advance;
-    #else // C_COMPENSATION_IGNORE_ACCELERATION
-    long decel_steps_completed = step_events_completed - current_block->decelerate_after;
-    long decel_steps_total = current_block->step_event_count - current_block->decelerate_after;
-    advance = target_advance + (decel_steps_completed*target_to_final_advance)/decel_steps_total;
-    #endif // C_COMPENSATION_IGNORE_ACCELERATION
+    // If retracting/returning increase the compensation speed as 
+    // the normal move rate goes down. 
+    if((IS_RETRACT(current_block) || IS_RESTORE(current_block)) && 
+       step_rate < acc_step_rate)
+    {
+      unsigned short new_advance_step_rate = current_block->advance_step_rate + 
+                                             (acc_step_rate - step_rate);
+      advance_step_rate = max(advance_step_rate, new_advance_step_rate);
+      advance_step_rate = min(advance_step_rate, max_advance_step_rate);
+      us_per_advance_step = 1000000 / advance_step_rate;
+    }
     #endif // C_COMPENSATION
 
     // step_rate to timer interval
@@ -1011,18 +1004,14 @@ ISR(TIMER1_COMPA_vect)
     timer = OCR1A_nominal;
     // ensure we're running at the correct step rate, even if we just came off an acceleration
     step_loops = step_loops_nominal;
-    #ifdef C_COMPENSATION
-    advance = target_advance;
-    #endif //C_COMPENSATION
   }
 
   // If current block is finished, reset pointer 
   if (step_events_completed >= current_block->step_event_count) {
-    #ifdef C_COMPENSATION
-    wait_for_comp = current_block->restore;           // Make sure we finish compensating before proceeding
-    if(wait_for_comp)                                 // and do it at the max rate for the return move
-      advance_step_rate += current_block->nominal_rate; 
-    wait_for_comp |= current_block->travel; // Do the same for travel moves, but use pre-calcualted e-speed
+    #ifdef C_COMPENSATION 
+    // Always wait for compensation on retract/restore
+    wait_for_comp = (old_advance != advance) && 
+                     (IS_RETRACT(current_block) || IS_RESTORE(current_block));
     #endif //C_COMPENSATION
     current_block = NULL;
     plan_discard_current_block();

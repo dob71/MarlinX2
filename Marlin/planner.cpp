@@ -108,30 +108,37 @@ static unsigned char old_direction_bits = 0;               // Old direction bits
 static long x_segment_time[3]={MAX_FREQ_TIME + 1,0,0};     // Segment times (in us). Used for speed calculations
 static long y_segment_time[3]={MAX_FREQ_TIME + 1,0,0};
 #endif
+#ifdef C_COMPENSATION
+#ifdef C_COMPENSATION_WINDOW
+static float window_acc_dst;
+static unsigned char window_count;
+#endif // C_COMPENSATION_WINDOW
+#endif // C_COMPENSATION
+#ifdef AUTO_SLOWDOWN
+static unsigned long prev_slowdown_time; // When last slowdown happened
+static bool queue_was_full; // queue over 75% was detected
+static int saved_feedmultiply; // var for saving feedmultiply
+#endif // AUTO_SLOWDOWN
+unsigned long planner_q_empty_time; // timestamp when planner queue became empty
 
-// Returns the index of the next block in the ring buffer
-// NOTE: Removed modulo (%) operator, which uses an expensive divide and multiplication.
-static int8_t next_block_index(int8_t block_index) {
-  block_index++;
-  if (block_index == BLOCK_BUFFER_SIZE) { 
-    block_index = 0; 
-  }
-  return(block_index);
-}
-
-
-// Returns the index of the previous block in the ring buffer
-static int8_t prev_block_index(int8_t block_index) {
-  if (block_index == 0) { 
-    block_index = BLOCK_BUFFER_SIZE; 
-  }
-  block_index--;
-  return(block_index);
-}
+#ifdef ULTIPANEL
+bool lcd_status_update_on_idle = false;
+bool lcd_status_buffer_full = false;
+#endif // ULTIPANEL
 
 //===========================================================================
 //=============================functions         ============================
 //===========================================================================
+
+// Returns the index of the next block in the ring buffer
+FORCE_INLINE int8_t next_block_index(int8_t block_index) {
+  return ((block_index + 1) & (BLOCK_BUFFER_SIZE - 1));
+}
+
+// Returns the index of the previous block in the ring buffer
+FORCE_INLINE int8_t prev_block_index(int8_t block_index) {
+  return ((block_index - 1) & (BLOCK_BUFFER_SIZE - 1));
+}
 
 // Calculates the distance (not time) it takes to accelerate from initial_rate to target_rate using the 
 // given acceleration:
@@ -169,45 +176,56 @@ FORCE_INLINE float max_allowable_speed(float acceleration, float target_velocity
 }
 
 #ifdef C_COMPENSATION
-// Calculate compensation (in steps) for given E speeds and extruder
-FORCE_INLINE void calc_c_comp(unsigned long s1, long &c1, 
-                              unsigned long s2, long &c2, 
-                              unsigned long s3, long &c3, 
-                              uint8_t extruder)
+// Calculate compensation (in steps) for given (non-zero) E speed and extruder
+FORCE_INLINE long calc_c_comp(unsigned long s, uint8_t extruder)
 {
   float low_bound = 0;
   float low_comp = 0;
-  c1 = c2 = c3 = 0;
+  long c = 0;
   for(int ii = 0; ii < gCComp_size[extruder]; ii++) 
   {
-    if(s1 < low_bound && s2 < low_bound && s3 < low_bound) {
+    if(s < low_bound) {
       break; 
     }
-    float high_bound = gCComp[ii][extruder][0] * axis_steps_per_unit[E_AXIS + extruder];
-    float high_comp = gCComp[ii][extruder][1] * axis_steps_per_unit[E_AXIS + extruder];
-    float a = (low_comp - high_comp)/(low_bound - high_bound);
-    float b = (high_bound*low_comp - low_bound*high_comp)/(high_bound - low_bound);
-    if(s2 >= low_bound && s2 < high_bound) {
-      c2 = floor(a*s2 + b);
-    } else if(s2 > high_bound) {
-      c2 = floor(high_comp);
+    float high_bound = gCComp_hb[ii][extruder][0];
+    float high_comp = gCComp_hb[ii][extruder][1];
+    if(s >= low_bound && s < high_bound) {
+      c = floor(gCComp_ab[ii][extruder][0]*s + gCComp_ab[ii][extruder][1]);
+    } else if(s > high_bound) {
+      c = floor(high_comp);
     }
-    #ifdef C_COMPENSATION_IGNORE_ACCELERATION
-    c1 = c3 = c2;
-    #else // C_COMPENSATION_IGNORE_ACCELERATION
-    if(s1 >= low_bound && s1 < high_bound) {
-      c1 = floor(a*s1 + b);
-    } else if(s1 > high_bound) {
-      c1 = floor(high_comp);
-    }
-    if(s3 >= low_bound && s3 < high_bound) {
-      c3 = floor(a*s3 + b);
-    } else if(s3 > high_bound) {
-      c3 = floor(high_comp);
-    }
-    #endif // C_COMPENSATION_IGNORE_ACCELERATION
     low_bound = high_bound;
     low_comp = high_comp;
+  }
+  return c;
+}
+
+// Handle next block transition cases (i.e. requiring changing in a block 
+// when its successor is added to the queue)
+FORCE_INLINE void handle_dependent_blocks_ccomp(block_t *prev, block_t *cur)
+{
+  // Restore is a special case, reset target to next block compensation
+  if(IS_RESTORE(prev)) 
+    prev->target_advance = prev->final_advance = cur->target_advance;
+  // For travel followed by non-travel reset final to next block compensation.
+  // For back-to-back travel moves smooth the transition by keepint the prev 
+  // final advance the same as travel move target advance (regardless of 
+  // half/full push modes).
+  if(IS_TRAVEL(prev)) {
+    if(!IS_TRAVEL(cur))
+      prev->final_advance = cur->target_advance;
+    else 
+      prev->final_advance = prev->target_advance;
+  }
+  // For the travel move preceeded by retract reset advance to that of 
+  // retract (which should be 0).
+  // For the printing move followed by travel set printing final advance to
+  // retract distance calculated for the travel move.
+  else if(IS_TRAVEL(cur)) {
+    if(IS_RETRACT(prev))
+      cur->target_advance = cur->final_advance = prev->final_advance = prev->target_advance;
+    else if(IS_PRINTING(prev))
+      prev->final_advance = cur->target_advance;
   }
   return;
 }
@@ -253,22 +271,28 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   }
 
 #ifdef C_COMPENSATION
-  long initial_advance;
   long target_advance;
   long final_advance;
   float e_factor = (float)block->steps_e / (float)block->step_event_count;
-  // Set filament compensation values in steps (only if moving in X, Y and positive E)
-  if((block->steps_x > dropsegments || block->steps_y > dropsegments) && 
-     (block->steps_e > 0 && (block->direction_bits & (1<<E_AXIS)) == 0))
+  float no_comp_dst = 0.0;
+  float prop_comp_dst = 0.0;
+  uint8_t extruder = block->active_extruder;
+  // Set filament compensation only if moving and feeding filament
+  if(IS_PRINTING(block) && !IS_IGNORECC(block))
   {
-    calc_c_comp(initial_rate * e_factor, initial_advance, 
-                target_rate * e_factor, target_advance, 
-                final_rate * e_factor, final_advance,
-                block->active_extruder);
-  } 
-  else // For all other blocks keep compensation unchanged
+    target_advance = final_advance = 
+      calc_c_comp(target_rate * e_factor, extruder);
+  }
+  // For retract start with compensation unchanged, then pull out all, for
+  // restore keep compensation unchanged for now (when the next block becomes 
+  // available we'll set restore compensation to match its initial one)
+  else if(IS_RETRACT(block))
   {
-    initial_advance = target_advance = final_advance = block->prev_advance;
+    target_advance = final_advance = 0;
+  }
+  else // By default keep the compensation unchanged
+  {
+    target_advance = final_advance = block->prev_target_advance;
   }
 #endif // C_COMPENSATION
 
@@ -279,7 +303,6 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
     block->initial_rate = initial_rate;
     block->final_rate = final_rate;
 #ifdef C_COMPENSATION
-    block->initial_advance = initial_advance;
     block->final_advance = final_advance;
     block->target_advance = target_advance;
 #endif // C_COMPENSATION
@@ -399,11 +422,9 @@ void planner_print_plan() {
     SERIAL_ECHOPAIR(" SY:", current->steps_y);
     SERIAL_ECHOPAIR(" SE:", current->steps_e);
     #ifdef C_COMPENSATION
-    SERIAL_ECHOPAIR(" IA:", current->initial_advance);
+    SERIAL_ECHOPAIR(" IA:", current->prev_target_advance);
     SERIAL_ECHOPAIR(" TA:", current->target_advance);
     SERIAL_ECHOPAIR(" FA:", current->final_advance);
-    SERIAL_ECHOPAIR(" PA:", current->prev_advance);
-    SERIAL_ECHOPAIR(" NA:", current->next_advance);
     #endif // C_COMPENSATION
     SERIAL_ECHOLN("");
     block_index = next_block_index( block_index );
@@ -429,16 +450,18 @@ void planner_recalculate_trapezoids() {
       if (current->recalculate_flag || next->recalculate_flag) {
         #ifdef C_COMPENSATION
         if(prev) {
-          current->prev_advance = prev->final_advance;
-        } 
+          current->prev_target_advance = prev->target_advance;
+        } else {
+          current->prev_target_advance = 0;
+        }
         #endif // C_COMPENSATION
         // NOTE: Entry and exit factors always > 0 by all previous logic operations.
         calculate_trapezoid_for_block(current, current->entry_speed/current->nominal_speed,
                                       next->entry_speed/current->nominal_speed);
         current->recalculate_flag = false; // Reset current only to ensure next trapezoid is computed
         #ifdef C_COMPENSATION
-        if(prev && prev->next_advance != current->initial_advance) {
-          prev->next_advance = current->initial_advance;
+        if(prev) {
+          handle_dependent_blocks_ccomp(prev, current);
         }
         #endif // C_COMPENSATION
       }
@@ -449,7 +472,9 @@ void planner_recalculate_trapezoids() {
   if(next != NULL) {
     #ifdef C_COMPENSATION
     if(current) {
-      next->prev_advance = current->final_advance;
+      next->prev_target_advance = current->target_advance;
+    } else {
+      next->prev_target_advance = 0;
     }
     #endif // C_COMPENSATION
     calculate_trapezoid_for_block(next, next->entry_speed/next->nominal_speed,
@@ -457,7 +482,7 @@ void planner_recalculate_trapezoids() {
     next->recalculate_flag = false;
     #ifdef C_COMPENSATION
     if(current) {
-      current->next_advance = next->initial_advance;
+      handle_dependent_blocks_ccomp(current, next);
     }
     #endif // C_COMPENSATION
   }
@@ -639,6 +664,37 @@ void check_axes_activity()
 #endif
 }
 
+// Handle machine inactivity for planner
+void planner_manage_inactivity(void)
+{
+  // See if we've just had the queue emptied and staying empty for the 
+  // PRINTING_SESSION_TIMEOUT
+  if(num_blocks_queued() == 0 && planner_q_empty_time && 
+     ((millis() - planner_q_empty_time) >= PRINTING_SESSION_TIMEOUT)) {
+#ifdef AUTO_SLOWDOWN
+    // Check the flag indicating we've seen queue full, it means we've
+    // saved the feedrate multipliet when that happened, so now we we 
+    // should restore it and clear the flag.
+    if(queue_was_full) {
+      queue_was_full = false;
+      feedmultiply = saved_feedmultiply;
+    }
+#endif // AUTO_SLOWDOWN
+
+#ifdef ULTIPANEL
+    // If need LCD update to clear "printing" status messages, do it now 
+    // (after PRINTING_SESSION_TIMEOUT delay)
+    if(lcd_status_update_on_idle) {
+      lcd_status_update_on_idle = false;
+      LCD_STATUS_RESET();
+    }
+#endif // ULTIPANEL
+
+    planner_q_empty_time = 0;
+  }
+
+  return;
+}
 
 float junction_deviation = 0.1;
 // Add a new linear movement to the buffer. steps_x, _y and _z is the absolute position in 
@@ -651,11 +707,17 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   // If the buffer is full: good! That means we are well ahead of the robot. 
   // Rest here until there is room in the buffer.
+  #ifdef ULTIPANEL
+  if(block_buffer_tail == next_buffer_head) {
+    LCD_MESSAGEPGM(MSG_PRINTING MSG_BUF_FULL);
+    lcd_status_update_on_idle = true;
+    lcd_status_buffer_full = true;
+  }
+  #endif // ULTIPANEL
   while(block_buffer_tail == next_buffer_head)
   {
     manage_heater(); 
     manage_inactivity(); 
-    lcd_update();
   }
   
   // The target position of the tool in absolute steps
@@ -706,13 +768,14 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   // Mark block as not busy (Not executed by the stepper interrupt)
   block->busy = false;
 
+  // clear all flags 
+  block->flags = 0;
+
   // Number of steps for each axis
   block->steps_x = labs(target[X_AXIS]-position[X_AXIS]);
   block->steps_y = labs(target[Y_AXIS]-position[Y_AXIS]);
   block->steps_z = labs(target[Z_AXIS]-position[Z_AXIS]);
   block->steps_e = labs(target[E_AXIS]-position[E_AXIS]);
-  block->steps_e *= extrudemultiply;
-  block->steps_e /= 100;
   block->step_event_count = max(block->steps_x, max(block->steps_y, max(block->steps_z, block->steps_e)));
 
   // Bail if this is a zero-length block
@@ -766,12 +829,11 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   if (block->steps_e == 0)
   {
     if(feed_rate<mintravelfeedrate) feed_rate=mintravelfeedrate;
-    block->travel = true;
+    SET_TRAVEL(block);
   }
   else
   {
     if(feed_rate<minimumfeedrate) feed_rate=minimumfeedrate;
-    block->travel = false;
   } 
 
   bool no_move;
@@ -779,10 +841,8 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   delta_mm[X_AXIS] = (target[X_AXIS]-position[X_AXIS])/axis_steps_per_unit[X_AXIS];
   delta_mm[Y_AXIS] = (target[Y_AXIS]-position[Y_AXIS])/axis_steps_per_unit[Y_AXIS];
   delta_mm[Z_AXIS] = (target[Z_AXIS]-position[Z_AXIS])/axis_steps_per_unit[Z_AXIS];
-  delta_mm[E_AXIS] = ((target[E_AXIS]-position[E_AXIS])/axis_steps_per_unit[E_AXIS + extruder]) *
-                     extrudemultiply / 100.0;
+  delta_mm[E_AXIS] = (target[E_AXIS]-position[E_AXIS])/axis_steps_per_unit[E_AXIS + extruder];
 
-  block->retract = block->restore = false;
   if ( block->steps_x <= dropsegments && block->steps_y <= dropsegments && block->steps_z <= dropsegments )
   {
     block->millimeters = fabs(delta_mm[E_AXIS]);
@@ -790,10 +850,10 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     // If retracting/returning mark the block as such
     if(block->steps_e != 0) {
       if((block->direction_bits & (1<<E_AXIS)) != 0) {
-        block->retract = true;
+        SET_RETRACT(block);
       }
       else {
-        block->restore = true;
+        SET_RESTORE(block);
       }
     }
   } 
@@ -806,25 +866,42 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   // Calculate speed in mm/second for each axis. No divide by zero due to previous checks.
   float inverse_second = feed_rate * inverse_millimeters;
   int moves_queued = num_blocks_queued();
+#ifdef AUTO_SLOWDOWN
+  unsigned long move_time = millis();
+#endif // AUTO_SLOWDOWN
 
-#ifdef SLOWDOWN
-  // Slow down only moves that are not retracting/returning and not moving Z
-  if(delta_mm[E_AXIS]!=0 && delta_mm[Z_AXIS]==0 && (delta_mm[X_AXIS]!=0 || delta_mm[Y_AXIS]!=0)) 
+  // If buffer is still filled in, but getting lower than 25%
+  if(moves_queued < (BLOCK_BUFFER_SIZE >> 2))
   {
-    //  segment time im micro seconds
-    unsigned long segment_time = lround(1000000.0/inverse_second);
-    if ((moves_queued > 1) && (moves_queued < (BLOCK_BUFFER_SIZE * 0.5)))
+#ifdef AUTO_SLOWDOWN
+    // Lower feed multiplier only when new moves are received and the 
+    // backoff interval since the last change has passed.  
+    // Also check that we are above the minimum and saw queue full.
+    if(((move_time - prev_slowdown_time) >= slowdown_backoff) && 
+       (feedmultiply > slowdown_min_feedmult) && slowdown_val && queue_was_full)
     {
-      if (segment_time < minsegmenttime)
-      { // buffer is draining, add extra time.  The amount of time added increases if the buffer is still emptied more.
-        inverse_second=1000000.0/(segment_time+lround(2*(minsegmenttime-segment_time)/moves_queued));
-        #ifdef XY_FREQUENCY_LIMIT
-           segment_time = lround(1000000.0/inverse_second);
-        #endif
-      }
+      feedmultiply -= slowdown_val; 
+      if(feedmultiply < slowdown_min_feedmult) 
+        feedmultiply = slowdown_min_feedmult;
+      prev_slowdown_time = move_time;
     }
+#endif // AUTO_SLOWDOWN
+#ifdef ULTIPANEL
+    if(lcd_status_buffer_full || !lcd_status_update_on_idle) {
+      LCD_MESSAGEPGM(MSG_PRINTING MSG_BUF_LOW);
+      lcd_status_update_on_idle = true;
+      lcd_status_buffer_full = false;
+    }
+#endif // ULTIPANEL
   }
-#endif // SLOWDOWN
+#ifdef AUTO_SLOWDOWN
+  else if(!queue_was_full && 
+          moves_queued >= ((BLOCK_BUFFER_SIZE >> 1) + (BLOCK_BUFFER_SIZE >> 2)))
+  {
+    saved_feedmultiply = feedmultiply;
+    queue_was_full = true;
+  }
+#endif // AUTO_SLOWDOWN
 
   block->nominal_speed = block->millimeters * inverse_second; // (mm/sec) Always > 0
   block->nominal_rate = ceil(block->step_event_count * inverse_second); // (step/sec) Always > 0
@@ -838,30 +915,30 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     if(fabs(current_speed[i]) > max_feedrate[i])
       speed_factor = min(speed_factor, max_feedrate[i] / fabs(current_speed[i]));
   }
-  
-#ifdef C_COMPENSATION
-# define COMP_SPEED (gCCom_min_speed[extruder])
-  block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * gCCom_min_speed[extruder];
-  block->prev_advance = 0;
-  block->next_advance = 0;
-#else // C_COMPENSATION
-# define COMP_SPEED (0.0)
-#endif // C_COMPENSATION
 
   current_speed[E_AXIS] = delta_mm[E_AXIS] * inverse_second;
-  if(fabs(current_speed[E_AXIS]) > max_feedrate[E_AXIS + extruder] - COMP_SPEED)
+  
+#ifdef C_COMPENSATION
+  float c_min_speed = gCCom_min_speed[extruder];
+  block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * c_min_speed;
+#else // C_COMPENSATION
+  float c_min_speed = 0.0;
+#endif // C_COMPENSATION
+
+  if(fabs(current_speed[E_AXIS]) > 
+     max_feedrate[E_AXIS + extruder] - c_min_speed)
   {
-    speed_factor = min(speed_factor, (max_feedrate[E_AXIS + extruder] - COMP_SPEED) / 
-                                     fabs(current_speed[E_AXIS]));
+    speed_factor = min(speed_factor, 
+                       (max_feedrate[E_AXIS + extruder] - c_min_speed) / 
+                       fabs(current_speed[E_AXIS]));
   }
   
   // Max segement time in us.
 #ifdef XY_FREQUENCY_LIMIT
-#define MAX_FREQ_TIME (1000000.0/XY_FREQUENCY_LIMIT)
   // Check and limit the xy direction change frequency
   unsigned char direction_change = block->direction_bits ^ old_direction_bits;
   old_direction_bits = block->direction_bits;
-  segment_time = lround((float)segment_time / speed_factor);
+  unsigned long segment_time = lround(1000000.0/(inverse_second*speed_factor));
   
   if((direction_change & (1<<X_AXIS)) == 0)
   {
@@ -930,7 +1007,6 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   block->acceleration = block->acceleration_st / steps_per_mm;
   block->acceleration_rate = (long)((float)block->acceleration_st * 8.388608);
 
-
   // For E-only moves use the user defined max for E axis otherwise use XY max
   float safe_speed;
   if(no_move) {
@@ -957,8 +1033,8 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
       if(fabs(current_speed[Z_AXIS] - previous_speed[Z_AXIS]) > max_z_jerk) {
         vmax_junction_factor= min(vmax_junction_factor, (max_z_jerk/fabs(current_speed[Z_AXIS] - previous_speed[Z_AXIS])));
       } 
-      if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) + COMP_SPEED > max_e_jerk[extruder]) {
-        vmax_junction_factor = min(vmax_junction_factor, (max_e_jerk[extruder]/(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS])) + COMP_SPEED));
+      if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) + c_min_speed > max_e_jerk[extruder]) {
+        vmax_junction_factor = min(vmax_junction_factor, (max_e_jerk[extruder]/(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS])) + c_min_speed));
       } 
       vmax_junction = min(previous_nominal_speed, vmax_junction * vmax_junction_factor); // Limit speed to max previous speed
     }
@@ -969,11 +1045,23 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     block->entry_speed = min(vmax_junction, v_allowable);
 
 #ifdef C_COMPENSATION
-    // Bump up the compensation speed to e-jerk if can
-    if(fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]) + COMP_SPEED < max_e_jerk[extruder]) {
+    // Adjust compensation speed to its max allowed value
+    float e_speed_change = fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]);
+    float e_jerk_allowance = max_e_jerk[extruder] - e_speed_change;
+    if(gCCom_max_speed[extruder] < e_jerk_allowance) 
+    {
       block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * 
-                                 (max_e_jerk[extruder] - fabs(current_speed[E_AXIS] - previous_speed[E_AXIS]));
+                                 gCCom_max_speed[extruder];
     } 
+    else if(e_jerk_allowance > c_min_speed) 
+    {
+      block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * 
+                                 e_jerk_allowance;
+    } else {
+      block->advance_step_rate = axis_steps_per_unit[E_AXIS+extruder] * 
+                                 gCCom_min_speed[extruder];
+    }
+    block->prev_target_advance = block->target_advance = block->final_advance = 0;
 #endif // C_COMPENSATION
 
     // Initialize planner efficiency flags
@@ -992,6 +1080,28 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
     }
     block->recalculate_flag = true; // Always calculate trapezoid for new block
   }
+
+#if defined(C_COMPENSATION) && defined(C_COMPENSATION_WINDOW)
+  // If the buffer at least half full consider ignoring compensation
+  // calculation for the short move printing blocks.
+  if(moves_queued >= (BLOCK_BUFFER_SIZE >> 1) && IS_PRINTING(block)) {
+    // If extruder has changes we work through all the buffered blocks first,
+    // so no need to have a special case for that here.
+    window_acc_dst += block->millimeters;
+    window_count++;
+    if(window_acc_dst < gCCom_window[extruder]) {
+      if(window_count > 1) {
+        SET_IGNORECC(block);
+      }
+    } else {
+      window_acc_dst = 0;
+      window_count = 0;
+    }
+  } else {
+    window_acc_dst = 0;
+    window_count = 0;
+  }
+#endif // C_COMPENSATION && C_COMPENSATION_WINDOW
   
   calculate_trapezoid_for_block(block, block->entry_speed/block->nominal_speed,
                                 safe_speed/block->nominal_speed);
@@ -1002,6 +1112,9 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   // Move buffer head
   block_buffer_head = next_buffer_head;
+
+  // Clear queue empty time since we've added a new move
+  planner_q_empty_time = 0;
 
   // Update position
   memcpy(position, target, sizeof(target)); // position[] = target[]

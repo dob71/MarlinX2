@@ -205,6 +205,9 @@ void enquecommand(const char *cmd); //put an ascii command at the end of the cur
 void enquecommand_P(const char *cmd); //put an ascii command at the end of the current buffer, read from flash
 void prepare_arc_move(char isclockwise);
 void clamp_to_software_endstops(float target[3]);
+#ifdef C_COMPENSATION
+void precalc_comp_values(unsigned char extruder);
+#endif // C_COMPENSATION
 
 #ifdef FAST_PWM_FAN
    void setPwmFrequency(uint8_t pin, int val);
@@ -218,7 +221,6 @@ void clamp_to_software_endstops(float target[3]);
 extern float homing_feedrate[];
 extern bool  axis_relative_modes[];
 extern int   feedmultiply;
-extern int   extrudemultiply; // Sets extrude multiply factor (in percent)
 extern float current_position[NUM_AXIS];
 extern float extruder_offset[2][EXTRUDERS];
 extern unsigned char fanSpeed[EXTRUDERS];
@@ -239,9 +241,15 @@ extern unsigned char fanSpeed[EXTRUDERS];
 
 #ifdef C_COMPENSATION
   extern float gCComp[][EXTRUDERS][2];
+  extern float gCComp_ab[][EXTRUDERS][2];
+  extern float gCComp_hb[][EXTRUDERS][2];
   extern int gCComp_size[EXTRUDERS];
   extern int gCComp_max_size;
   extern float gCCom_min_speed[EXTRUDERS];
+  extern float gCCom_max_speed[EXTRUDERS];
+  #ifdef C_COMPENSATION_WINDOW
+  extern float gCCom_window[EXTRUDERS];
+  #endif // C_COMPENSATION_WINDOW
 #endif // C_COMPENSATION
 
 #ifdef FWRETRACT
@@ -254,6 +262,12 @@ extern unsigned char fanSpeed[EXTRUDERS];
 #ifdef PER_EXTRUDER_FANS
   extern int fan_pin[EXTRUDERS];
 #endif
+
+#ifdef AUTO_SLOWDOWN
+  extern unsigned char slowdown_val;
+  extern unsigned char slowdown_min_feedmult;
+  extern unsigned long slowdown_backoff;
+#endif // AUTO_SLOWDOWN
 
 #if EXTRUDERS > 1
   extern uint8_t follow_me; // Bitmask of the follow me mode state
