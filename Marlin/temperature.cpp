@@ -272,16 +272,16 @@ void PID_autotune(float temp, int extruder, int ncycles)
     if(millis() - temp_millis > 2000) {
 			int p;
 			if (extruder<0){
-	      p=soft_pwm_bed;       
+	      p=soft_pwm_bed;
 	      SERIAL_PROTOCOLPGM("ok B:");
 			}else{
-	      p=soft_pwm[extruder];       
+	      p=soft_pwm[extruder];
 	      SERIAL_PROTOCOLPGM("ok T:");
 			}
 			
-      SERIAL_PROTOCOL(input);   
+      SERIAL_PROTOCOL(input);
       SERIAL_PROTOCOLPGM(" @:");
-      SERIAL_PROTOCOLLN(p);       
+      SERIAL_PROTOCOLLN(p);
 
       temp_millis = millis();
     }
@@ -1155,3 +1155,31 @@ ISR(TIMER0_COMPB_vect)
 #endif // TEMP_SENSOR_BED != 0
   }  
 }
+
+#ifdef PIDTEMP
+// Apply the scale factors to the PID values
+
+
+float scalePID_i(float i)
+{
+	return i*PID_dT;
+}
+
+float unscalePID_i(float i)
+{
+	return i/PID_dT;
+}
+
+float scalePID_d(float d)
+{
+    return d/PID_dT;
+}
+
+float unscalePID_d(float d)
+{
+	return d*PID_dT;
+}
+
+#endif //PIDTEMP
+
+

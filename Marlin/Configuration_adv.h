@@ -16,7 +16,6 @@
 //#define WATCH_TEMP_PERIOD 40000 //40 seconds
 //#define WATCH_TEMP_INCREASE 10  //Heat up at least 10 degree in 20 seconds
 
-
 #ifdef PIDTEMP
   // this adds an experimental additional term to the heatingpower, proportional to the extrusion speed.
   // if Kc is choosen well, the additional required power due to increased melting should be compensated.
@@ -25,7 +24,6 @@
     #define  DEFAULT_Kc (1) //heatingpower=Kc*(e_speed)
   #endif
 #endif
-
 
 //automatic temperature: The hot end target temperature is calculated by all the buffered lines of gcode.
 //The maximum buffered steps/sec of the extruder motor are called "se".
@@ -197,8 +195,10 @@
 // Minimum time in microseconds that a movement needs to take if the buffer is emptied.
 #define DEFAULT_MINSEGMENTTIME        20000
 
-// If defined the movements slow down when the look ahead buffer is only half full
-#define SLOWDOWN
+// sets the max time (in milliseconds) between moves
+// that belong to the same printing sequence. Moves arriving with interval 
+// longer than that are not triggering slowdown.
+#define PRINTING_STOPPED_TIMEOUT 500
 
 // Frequency limit
 // See nophead's blog for more info
@@ -302,11 +302,10 @@ const unsigned int dropsegments = 5;
 // THE BLOCK_BUFFER_SIZE NEEDS TO BE A POWER OF 2, i.g. 8,16,32 because shifts 
 // and ors are used to do the ringbuffering.
 #if defined SDSUPPORT
-  #define BLOCK_BUFFER_SIZE 16   // SD,LCD,Buttons take more memory, block buffer needs to be smaller
+  #define BLOCK_BUFFER_SIZE 32   // SD,LCD,Buttons take more memory, block buffer needs to be smaller
 #else
-  #define BLOCK_BUFFER_SIZE 16 // maximize block buffer
+  #define BLOCK_BUFFER_SIZE 32 // maximize block buffer
 #endif
-
 
 // The ASCII buffer for receiving from the serial:
 #define MAX_CMD_SIZE 96
@@ -438,5 +437,9 @@ const unsigned int dropsegments = 5;
   #endif
   #define FAN_PIN (fan_pin[ACTIVE_EXTRUDER])
 #endif // PER_EXTRUDER_FANS
+
+#if (((((BLOCK_BUFFER_SIZE) - 1) | (BLOCK_BUFFER_SIZE)) >> 1) != ((BLOCK_BUFFER_SIZE) - 1))
+#  error "BLOCK_BUFFER_SIZE has to be a a power of 2!"
+#endif
 
 #endif //__CONFIGURATION_ADV_H

@@ -36,21 +36,20 @@ typedef struct {
   long decelerate_after;                    // The index of the step event on which to start decelerating
   long acceleration_rate;                   // The acceleration rate used for acceleration calculation
   unsigned char direction_bits;             // The direction bit set for this block (refers to *_DIRECTION_BIT in config.h)
+
+  // Housekeeping
   unsigned char active_extruder;            // Selects the active extruder
-  bool retract;                             // Identified as retract move block (not yet used)
-  bool restore;                             // Identified as return move block
-  bool travel;                              // Identified as travel move block
+  unsigned short flags;                     // Block flags (see below) 
+  
+  // Compensation calculations
   #ifdef C_COMPENSATION
-    long initial_advance;                   // Steps to be ahead when entering the block
-    long target_advance;                    // Steps to be ahead when done accelerating
-    long final_advance;                     // Steps to be ahead when done with the block
-    long prev_advance;                      // Filled with final_advance of the prev block
-    long next_advance;                      // Filled with initial_advance of the next block
-    unsigned short advance_step_rate;       // How fast to advance in this block
+    long prev_target_advance;               // Steps ahead from previous block
+    long target_advance;                    // Steps ahead during the move (at nominal speed)
+    long final_advance;                     // Steps ahead at the end
+    unsigned short advance_step_rate;       // How fast to advance in this block (when at nominal speed phase)
   #endif // C_COMPENSATION
 
   // Fields used by the motion planner to manage acceleration
-//  float speed_x, speed_y, speed_z, speed_e;        // Nominal mm/sec for each axis
   float nominal_speed;                               // The nominal speed for this block in mm/sec 
   float entry_speed;                                 // Entry speed at previous-current junction in mm/sec
   float max_entry_speed;                             // Maximum allowable junction entry speed in mm/sec
@@ -68,6 +67,29 @@ typedef struct {
   volatile char busy;
 } block_t;
 
+// Block flags
+#define B_FL_TRAVEL     0x0001 // Travle block (no E moves)
+#define B_FL_RETRACT    0x0002 // Retract (only E-move to pull filament out)
+#define B_FL_RESTORE    0x0004 // Restore (only E-move to push filament in)
+#define B_FL_IGNORECC   0x0008 // Skip compression compensation for the block
+
+// Macros for setting/clearing/checking the flags
+#define IS_TRAVEL(b) ((b)->flags & B_FL_TRAVEL)
+#define IS_RETRACT(b) ((b)->flags & B_FL_RETRACT)
+#define IS_RESTORE(b) ((b)->flags & B_FL_RESTORE)
+#define IS_IGNORECC(b) ((b)->flags & B_FL_IGNORECC)
+#define IS_PRINTING(b) (!((b)->flags & (B_FL_TRAVEL|B_FL_RETRACT|B_FL_RESTORE)))
+
+#define SET_TRAVEL(b) ((b)->flags |= B_FL_TRAVEL)
+#define SET_RETRACT(b) ((b)->flags |= B_FL_RETRACT)
+#define SET_RESTORE(b) ((b)->flags |= B_FL_RESTORE)
+#define SET_IGNORECC(b) ((b)->flags |= B_FL_IGNORECC)
+
+#define CLR_TRAVEL(b) ((b)->flags &= ~B_FL_TRAVEL)
+#define CLR_RETRACT(b) ((b)->flags &= ~B_FL_RETRACT)
+#define CLR_RESTORE(b) ((b)->flags &= ~B_FL_RESTORE)
+#define CLR_IGNORECC(b) ((b)->flags &= ~B_FL_IGNORECC)
+
 // Initialize the motion plan subsystem      
 void plan_init();
 
@@ -78,6 +100,9 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 // Set position. Used for G92 instructions.
 void plan_set_position(const float &x, const float &y, const float &z, const float &e);
 void plan_set_e_position(const float &e);
+
+// Handle machine inactivity for planner
+void planner_manage_inactivity(void);
 
 #ifdef ENABLE_DEBUG
 void planner_print_plan();
@@ -97,6 +122,7 @@ extern float max_e_jerk[EXTRUDERS]; // mm/s - initial speed for extruder retract
 extern float max_xy_jerk; //speed than can be stopped at once, if i understand correctly.
 extern float max_z_jerk;
 extern float mintravelfeedrate;
+extern unsigned long planner_q_empty_time; // timestamp when planner queue became empty
 
 #ifdef AUTOTEMP
     extern bool autotemp_enabled;
@@ -105,8 +131,9 @@ extern float mintravelfeedrate;
     extern float autotemp_factor;
 #endif
 
-    
-
+#ifdef ULTIPANEL
+extern bool lcd_status_update_on_idle;
+#endif // ULTIPANEL
 
 extern block_t block_buffer[BLOCK_BUFFER_SIZE];            // A ring buffer for motion instfructions
 extern volatile unsigned char block_buffer_head;           // Index of the next block to be pushed
@@ -134,10 +161,7 @@ FORCE_INLINE block_t *plan_get_current_block()
 // Returns true if there are blocks to process
 FORCE_INLINE bool blocks_queued() 
 {
-  if (block_buffer_head == block_buffer_tail) { 
-    return false; 
-  }
-  return true;
+  return (block_buffer_head != block_buffer_tail);
 }
 
 // Returns true if there is only one block in the queue
@@ -157,4 +181,5 @@ FORCE_INLINE int num_blocks_queued()
 }
 
 void allow_cold_extrudes(bool allow);
+
 #endif
