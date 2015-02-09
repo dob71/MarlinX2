@@ -647,7 +647,6 @@ void get_command()
           SERIAL_ERRORLN(gcode_LastN);
           FlushSerialRequestResend();
           serial_count = 0;
-          kill();
           return;
         }
         gcode_LastN = gcode_N;
