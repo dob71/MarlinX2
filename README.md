@@ -1,40 +1,29 @@
-WARNING: 
---------
-THIS IS MARLIN X2 1.1.0 Beta 1
-Merged Marlin RC2 with MARLIN X2 1.0.0
-Several new features added
-
-The configuration is now split in two files
-Configuration.h for the normal settings
-Configuration_adv.h for the advanced settings
-
-Gen7T is not supported.
-
 Quick Information
 ===================
-This RepRap firmware is a mashup between <a href="https://github.com/kliment/Sprinter">Sprinter</a>, <a href="https://github.com/simen/grbl/tree">grbl</a> and many original parts.
-On top of that it has multiple extruder support.
+This is Marlin X2 RepRap firmware. It is a mod of popular Marlin firmware. 
+It has some extra features mostly in the area of multiple extruder support.
 
-Derived from Sprinter and Grbl by Erik van der Zalm.
-Sprinters lead developers are Kliment and caru.
-Grbls lead developer is Simen Svale Skogsrud. Sonney Jeon (Chamnit) improved some parts of grbl
-A fork by bkubicek for the Ultimaker was merged, and further development was aided by him.
-Some features have been added by:
-Lampmaker, Bradley Feldman, and others...
+The default baudrate is 115200. 
 
-Features:
+The default config file is for dual X drive machines (i.e. RepRap X2V3). 
+There are example configuration files for typical single extruder printers 
+and RepRap X2 machines on branches "one_e" and "x2".  
 
+See for more info:
+http://www.okob.net/projects/reprap_x2v3
+
+The firware is based on Marlin firware that in its turn is based on Sprinter firmware...
+
+Main Features:
 *   Interrupt based movement with real linear acceleration
 *   High steprate
 *   Look ahead (Keep the speed high when possible. High cornering speed)
 *   Interrupt based temperature protection
-*   preliminary support for Matthew Roberts advance algorithm 
-    For more info see: http://reprap.org/pipermail/reprap-dev/2011-May/003323.html
 *   Full endstop support
 *   SD Card support
 *   SD Card folders (works in pronterface)
 *   SD Card autostart support
-*   LCD support (ideally 20x4) 
+*   LCD support (ideally 20x4 and graphics LCD) 
 *   LCD menu system for autonomous SD card printing, controlled by an click-encoder. 
 *   EEPROM storage of e.g. max-velocity, max-acceleration, and similar variables
 *   many small but handy things originating from bkubicek's fork.
@@ -49,91 +38,14 @@ Features:
 *   CoreXY kinematics (www.corexy.com/theory.html)
 *   Configurable serial port to support connection of wireless adaptors.
 *   Support for up to 3 extruders
-*   Support for filament compression (bowden filament drive) compensation.
+*   Support for dual (independently moving) hotend carriages on X or Y axis.
+*   Support for filament compression (in bowden filament drive) compensation.
 *   Support for the follow-me mode.
+*   Auto-adjustment of feed rate multiplier for planner overrun prevention.
 
-The default baudrate is 115200. You can try 250000 it is less supported by drivers and host-environments, but might work better for you.
 
-
-Differences and additions to the already good Sprinter firmware:
-================================================================
-
-*Look-ahead:*
-
-Marlin has look-ahead. While sprinter has to break and re-accelerate at each corner, 
-lookahead will only decelerate and accelerate to a velocity, 
-so that the change in vectorial velocity magnitude is less than the xy_jerk_velocity.
-This is only possible, if some future moves are already processed, hence the name. 
-It leads to less over-deposition at corners, especially at flat angles.
-
-*Arc support:*
-
-Slic3r can find curves that, although broken into segments, were ment to describe an arc.
-Marlin is able to print those arcs. The advantage is the firmware can choose the resolution,
-and can perform the arc with nearly constant velocity, resulting in a nice finish. 
-Also, less serial communication is needed.
-
-*Temperature Oversampling:*
-
-To reduce noise and make the PID-differential term more useful, 16 ADC conversion results are averaged.
-
-*AutoTemp:*
-
-If your gcode contains a wide spread of extruder velocities, or you realtime change the building speed, the temperature should be changed accordingly.
-Usually, higher speed requires higher temperature.
-This can now be performed by the AutoTemp function
-By calling M109 S<mintemp> T<maxtemp> F<factor> you enter the autotemp mode.
-
-You can leave it by calling M109 without any F.
-If active, the maximal extruder stepper rate of all buffered moves will be calculated, and named "maxerate" [steps/sec].
-The wanted temperature then will be set to t=tempmin+factor*maxerate, while being limited between tempmin and tempmax.
-If the target temperature is set manually or by gcode to a value less then tempmin, it will be kept without change.
-Ideally, your gcode can be completely free of temperature controls, apart from a M109 S T F in the start.gcode, and a M109 S0 in the end.gcode.
-
-*EEPROM:*
-
-If you know your PID values, the acceleration and max-velocities of your unique machine, you can set them, and finally store them in the EEPROM.
-After each reboot, it will magically load them from EEPROM, independent what your Configuration.h says.
-
-*LCD Menu:*
-
-If your hardware supports it, you can build yourself a LCD-CardReader+Click+encoder combination. It will enable you to realtime tune temperatures,
-accelerations, velocities, flow rates, select and print files from the SD card, preheat, disable the steppers, and do other fancy stuff.
-One working hardware is documented here: http://www.thingiverse.com/thing:12663 
-Also, with just a 20x4 or 16x2 display, useful data is shown.
-
-*SD card folders:*
-
-If you have an SD card reader attached to your controller, also folders work now. Listing the files in pronterface will show "/path/subpath/file.g".
-You can write to file in a subfolder by specifying a similar text using small letters in the path.
-Also, backup copies of various operating systems are hidden, as well as files not ending with ".g".
-
-*SD card folders:*
-
-If you place a file auto[0-9].g into the root of the sd card, it will be automatically executed if you boot the printer. The same file will be executed by selecting "Autostart" from the menu.
-First *0 will be performed, than *1 and so on. That way, you can heat up or even print automatically without user interaction.
-
-*Endstop trigger reporting:*
-
-If an endstop is hit while moving towards the endstop, the location at which the firmware thinks that the endstop was triggered is outputed on the serial port.
-This is useful, because the user gets a warning message.
-However, also tools like QTMarlin can use this for finding acceptable combinations of velocity+acceleration.
-
-*Coding paradigm:*
-
-Not relevant from a user side, but Marlin was split into thematic junks, and has tried to partially enforced private variables.
-This is intended to make it clearer, what interacts which what, and leads to a higher level of modularization.
-We think that this is a useful prestep for porting this firmware to e.g. an ARM platform in the future.
-A lot of RAM (with enabled LCD ~2200 bytes) was saved by storing char []="some message" in Program memory.
-In the serial communication, a #define based level of abstraction was enforced, so that it is clear that
-some transfer is information (usually beginning with "echo:"), an error "error:", or just normal protocol,
-necessary for backwards compatibility.
-
-*Interrupt based temperature measurements:*
-
-An interrupt is used to manage ADC conversions, and enforce checking for critical temperatures.
-This leads to less blocking in the heater management routine.
-
+Information on some differences and additions:
+==============================================
 *Temperature control:*
 
 You can configure PID to be active only within specified range of the terget temperature.
@@ -150,38 +62,38 @@ pick the last position from). If "S" is not specified the last known
 position for the new selected extruder is used. For example, if Skeinforge 
 generates support using absolute coordinates and you want it to be printed 
 using extruder 1 while the object is printed using extruder 0, use "T1 S0" 
-to start support printing and "T0 S1" to go go back to the object printing. 
+for switching to support printing and "T0 S1" to go back to the object printing. 
 Alternatively, If you have gcode for extrider 0 and 1 generated separately 
-and then mixed just use T0 and T1 to switch between the extruders.
+and then mixed just use "T0" and "T1" to switch between the extruders.
 
 By default, the extruder commands and settings are applied only to the
 active extruder. For example, to change max feedrate for extruders 1 
 while extruder 0 is active, one has to either use T1 option with M203 command
 setting the new feedrate or switch to the extruder 1 by sending T1 command 
-and set the feedrate with M203 after that.
+first and set the feedrate with M203 after that.
 
 The M503 command (print EEPROM setting) shows info for all extruders. 
-It shows the setting for extruder 0 first (without the T option).
+It shows each setting for extruder 0 first (without the T option).
 Then it shows extruder specific command settings with T option for 
 additional extruders. 
 
 The commands affecting different extruders (like M104, M105 and M109) can 
 take extruder number as a parameter. For example, in order to change the 
 temperature of the extruder 1 heater without switching to it use 
-"M104 S180 T1". Some commands can also be used with option A1 for affecting 
-all extruders. For example, M105 can be used with option A1 that will change 
-its output to show temperature of all extruders starting with the active one 
-as well as the target temperature (for example, if extruder 0 is active on 
-a 2 extruder system, target temperature set to 100deg and bed temperature
-is not set: "ok T0:56/100 T1:51/100  B:20/0").
+"M104 S180 T1". Some commands can also be used with option A1 for acting on  
+all extruders. For example, M105 can be used with option A1 to change 
+its output to show temperature of all extruders starting with the active one. 
+It also shows the target temperature. For example, if extruder 1 is active on 
+a 2 extruder system, target temperatures set to 100deg and bed temperature
+is not set: "ok T1:56/100 T0:51/100  B:20/0".
 
 M109 can be used to wait for all extruder heaters that have temperature 
 set to non-0 values by specifying non-0 'A' parameter, e.g. "M109 A1".
 M109 can also take the W_num_ parameter that can change the default 
 dwell time for temperature stabilization (if enabled in the config).
 
-The "follw me" mode command (M322), turns the "follow me" mode on or 
-off for extruders (T<extruder>  S<1-on/0-off>). The mode has to be off 
+The "follow me" mode command (M322), turns the "follow me" mode on or 
+off for extruders (T&lt;extruder&gt;  S&lt;1-on/0-off&gt;). The mode has to be off 
 for the active extruder. The extruders that have the mode set repeat 
 moves of the active extruder (for simultaneous printing from multiple 
 extruders). The command also has H and F options for turning on/off 
@@ -194,8 +106,17 @@ often needed when printing printer parts (for example left and right
 extruder parts) or halfs of some single object that have to be glued 
 together.
 
-Note that the firmware retract feature (FWRETRACT define) is not 
-multiple extruder compatible.
+Note that the firmware retract feature (FWRETRACT define) is not compatible 
+with multiple extruders.
+
+
+What changes came with the Marlin X2 v1.1.1:
+============================================
+- Merged in mainstream code with graphics LCD (DOGLCD) support
+- Upgraded all LCD menus to support X2 features
+- Fixed a few bugs and LCD status reporting logic
+- Various optimizations and simplification of the filament compression compensation feature
+- Auto slowdown feature for automatically detecting and slowing down prints where planner cannot keep up with the machine
 
 
 What changes came with the Marlin X2 v1.1.0:
@@ -240,6 +161,7 @@ What changes came with the Marlin X2 v1.1.0:
     SENDING:M105 A1
     ok T0:19/0 T1:19/0  B:19/0
 
+
 Non-standard G-Codes, different to an old version of sprinter:
 ==============================================================
 Movement:
@@ -264,7 +186,7 @@ Movement variables:
 *   M203 - Set maximum feedrate that your machine can sustain (M203 X200 Y200 Z300 E10000) in mm/sec
 *   M204 - Set default acceleration: S normal moves T filament only moves (M204 S3000 T7000) im mm/sec^2  also sets minimum segment time in ms (B20000) to prevent buffer underruns and M20 minimum feedrate
 *   M206 - set home offsets.  This sets the X,Y,Z coordinates of the endstops (and is added to the {X,Y,Z}_HOME_POS configuration options (and is also added to the coordinates, if any, provided to G82, as with earlier firmware)
-*   M220 - set build speed mulitplying S:factor in percent ; aka "realtime tuneing in the gcode". So you can slow down if you have islands in one height-range, and speed up otherwise.
+*   M220 - set build speed mulitplying S:factor in percent ; aka "realtime tuneing in the gcode". If you have AUTO_SLOWDOWN enabled the L (minimum) and B (backoff time) allow to control it. See Configuration.h for details.
 *   M221 - set the extrude multiplying S:factor in percent
 *   M400 - Finish all buffered moves.
 
@@ -272,12 +194,11 @@ Temperature variables:
 
 *   M301 - Set PID parameters P I and D
 *   M302 - Allow cold extrudes
-*   M303 - PID relay autotune S<temperature> sets the target temperature. (default target temperature = 150C)
+*   M303 - PID relay autotune S&lt;temperature&gt; sets the target temperature. (default target temperature = 150C)
 
 EEPROM:
 
-*   M500 - stores paramters in EEPROM. This parameters are stored:  axis_steps_per_unit,  max_feedrate, max_acceleration  ,acceleration,retract_acceleration,
-  minimumfeedrate,mintravelfeedrate,minsegmenttime,  jerk velocities, PID
+*   M500 - stores paramters in EEPROM. 
 *   M501 - reads parameters from EEPROM (if you need reset them after you changed them temporarily).  
 *   M502 - reverts to the default "factory settings".  You still need to store them in EEPROM afterwards if you want to.
 *   M503 - print the current settings (from memory not from eeprom)
@@ -287,13 +208,16 @@ MISC:
 *   M240 - Trigger a camera to take a photograph
 *   M999 - Restart after being stopped by error
 *   M331 - Save current position coordinates (all axes, for active extruder).
-           S<SLOT> - specifies memory slot # (0-based) to save into (default 0)
-*   M332 - Apply/restore saved coordinates to the active extruder. X<0|1>,
-           Y<0|1>,Z<0|1>,E<0|1> - use 1 to filter the axis in (default), 0 to 
-           filter it out. F<speed> - make move to the restored position, if 
+           S&lt;SLOT&gt; - specifies memory slot # (0-based) to save into (default 0)
+*   M332 - Apply/restore saved coordinates to the active extruder. X&lt;0|1&gt;,
+           Y&lt;0|1&gt;,Z&lt;0|1&gt;,E&lt;0|1&gt; - use 1 to filter the axis in (default), 0 to 
+           filter it out. F&lt;speed&gt; - make move to the restored position, if 
            'F' is not used the restored coordinates set as current position. 
-           S<SLOT> - specifies memory slot # (0-based) to restore from 
+           S&lt;SLOT&gt; - specifies memory slot # (0-based) to restore from 
            (default 0)
+*   M504 - Set/clear debug flags (see ENABLE_DEBUG in Marlin.h). For example 
+           M504 S1 enables 'echo' output during printing even if firmware
+           is compiled with NO_ECHO_WHILE_PRINTING.
 
 
 MULTIPLE EXTRUDERS:
@@ -304,30 +228,38 @@ MULTIPLE EXTRUDERS:
 FILAMENT COMPRESSION COMPENSATION:
 
 *   M340 - (compression compensation) command. That command allows to specify 
-    a table of values telling the firmware how much the filament being 
-    pushed to the hotend compresses depending on how fast it has to be extruded 
-    and compensate. That is still experimental. It covers the functionality 
-    called "ADVANCE" (the ADVANCE code was broken in Marlin).
+    a table of values telling the firmware how much the filament being pushed 
+    to the hotend gets compressed depending on the extrusion speed. The firmware 
+    tries to compensate accordingly. This is still an experimental feature. 
+    It covers the functionality similar to "advance algorithm" that was not 
+    working in the original Marlin firmware.
 
 
 Configuring and compilation:
 ============================
-
-Install the arduino software IDE/toolset v23
+Install the arduino software IDE/toolset v1.0.6
    http://www.arduino.cc/en/Main/Software
 
 Copy the Marlin firmware
-   https://github.com/dob71/Marlin/tree/m
-   (Use the download button)
+   https://github.com/dob71/MarlinX2
+   (Clone or use zip download)
 
 Start the arduino IDE.
-Select Tools -> Board -> Arduino Mega 2560 or your microcontroller
-Select the correct serial port in Tools ->Serial Port
-Open Marlin.pde
 
-Click the Verify/Compile button
+Select Tools -&gt; Board -&gt; Arduino Mega 2560 or your microcontroller.
 
-Click the Upload button
-If all goes well the firmware is uploading
+Select the correct serial port in Tools -&gt;Serial Port.
+
+Add libraries (override if exist) from
+"&lt;MarlinX2 folder&gt;/Marlin/ArduinoAddons/Arduino_1.x.x/libraries/" to 
+"&lt;Arduino folder&gt;/libraries/".
+
+Open Marlin.pde.
+
+Edit the &lt;MarlinX2 folder&gt;/Marlin/Configuration.h to match you printer.
+
+Click the Verify/Compile button.
+
+Click the Upload button. If all goes well the firmware is uploading.
 
 Enjoy Silky Smooth Printing.
