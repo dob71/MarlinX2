@@ -12,10 +12,9 @@ and RepRap X2 machines on branches "one_e" and "x2".
 See for more info:
 http://www.okob.net/projects/reprap_x2v3
 
+The firware is based on Marlin firware that in its turn is based on Sprinter firmware...
 
-Based on Marlin firware that is based on Sprinter firmware...:
-================================================================
-Features:
+Main Features:
 *   Interrupt based movement with real linear acceleration
 *   High steprate
 *   Look ahead (Keep the speed high when possible. High cornering speed)
@@ -247,21 +246,20 @@ Copy the Marlin firmware
 
 Start the arduino IDE.
 
-Select Tools -&gt; Board -&gt; Arduino Mega 2560 or your microcontroller
+Select Tools -&gt; Board -&gt; Arduino Mega 2560 or your microcontroller.
 
-Select the correct serial port in Tools -&gt;Serial Port
+Select the correct serial port in Tools -&gt;Serial Port.
 
-Add libraris (override if exists) from
- &lt;MarlinX2 folder&gt;/Marlin/ArduinoAddons/Arduino_1.x.x/libraries/
-to
- &lt;Arduino folder&gt;/libraries/
-Open Marlin.pde
+Add libraries (override if exist) from
+"&lt;MarlinX2 folder&gt;/Marlin/ArduinoAddons/Arduino_1.x.x/libraries/" to 
+"&lt;Arduino folder&gt;/libraries/".
 
-Edit the &lt;MarlinX2 folder&gt;/Marlin/Configuration.h to match you printer
+Open Marlin.pde.
 
-Click the Verify/Compile button
+Edit the &lt;MarlinX2 folder&gt;/Marlin/Configuration.h to match you printer.
 
-Click the Upload button
-If all goes well the firmware is uploading
+Click the Verify/Compile button.
+
+Click the Upload button. If all goes well the firmware is uploading.
 
 Enjoy Silky Smooth Printing.
