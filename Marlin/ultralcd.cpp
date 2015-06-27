@@ -252,6 +252,16 @@ static void lcd_autostart_sd()
 }
 #endif
 
+void lcd_cooldown()
+{
+    for(uint8_t i = 0; i < EXTRUDERS; i++) {
+        setTargetHotend(0, i);
+        fanSpeed[i] = 0;
+    }
+    setTargetBed(0);
+    lcd_return_to_status();
+}
+
 void lcd_preheat_pla()
 {
     setTargetHotend(plaPreheatHotendTemp, active_extruder);
@@ -319,7 +329,7 @@ static void lcd_prepare_menu()
     MENU_ITEM(function, MSG_PREHEAT_PLA, lcd_preheat_pla);
     MENU_ITEM(function, MSG_PREHEAT_ABS, lcd_preheat_abs);
     MENU_ITEM(gcode, MSG_DISABLE_STEPPERS, PSTR("M84"));
-    MENU_ITEM(gcode, MSG_COOLDOWN, PSTR("M104 S0\nM140 S0"));
+    MENU_ITEM(function, MSG_COOLDOWN, lcd_cooldown);
     MENU_ITEM(submenu, MSG_MOVE_AXIS, lcd_move_menu);
     END_MENU();
 }
